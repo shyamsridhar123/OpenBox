@@ -1,0 +1,89 @@
+# OpenSandbox-on-Azure .gitignore
+
+# OMC orchestration state — local-only, contains internal task state
+.omc/state/
+.omc/drafts/
+.remember/
+.claude/
+
+# Sub-agent task output files (JSONL transcripts; can contain large traces)
+*.output
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg
+build/
+dist/
+.venv/
+venv/
+env/
+.python-version
+
+# uv
+.uv-cache/
+
+# Node / TypeScript
+node_modules/
+*.tsbuildinfo
+.npm/
+dist/
+
+# Go
+*.exe
+*.test
+*.out
+
+# Bicep build outputs
+*.json.bicep
+infra/bicep/main.json
+infra/bicep/modules/*.json
+
+# Helm
+*.tgz
+charts/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+azureauth.json
+credentials.json
+local.settings.json
+
+# Bicep parameters with real subscription/tenant IDs (use .example pattern)
+infra/bicep/parameters/*.local.parameters.json
+infra/bicep/parameters/prod.parameters.json
+
+# Evidence / run output (we'll selectively force-add specific files later)
+evidence/runs/
+evidence/screenshots-raw/
+*.tar.gz
+*.zip
+
+# Logs
+*.log
+logs/
+
+# AZ CLI cache leaks
+.azure/
