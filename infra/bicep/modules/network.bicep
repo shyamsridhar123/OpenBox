@@ -350,7 +350,10 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
         properties: {
           addressPrefix: '10.10.1.0/24'
           networkSecurityGroup: { id: nsgSystem.id }
-          natGateway: { id: natGw.id }
+          // No NAT Gateway here: AKS uses outboundType=loadBalancer by default,
+          // and attaching a NAT GW to the cluster's system subnet conflicts with
+          // the AKS-managed SLB outbound rule (silent CSE bootstrap failure,
+          // observed in deploys 003/004).
           privateEndpointNetworkPolicies: 'Disabled'
         }
       }

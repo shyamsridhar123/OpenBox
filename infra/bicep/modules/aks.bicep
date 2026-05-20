@@ -87,6 +87,18 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
       dnsServiceIP: '172.16.0.10'
       advancedNetworking: {
         enabled: true
+        // ACNS security (FQDN policy) is DISABLED at cluster create to avoid
+        // a bootstrap deadlock: with security enabled but no FQDN policies
+        // loaded, Cilium can deny the kubelet's CSE traffic to mcr.microsoft.com /
+        // packages.aks.azure.com, leaving every system node stuck in OS-provisioned
+        // but no-extensions state and AKS in an infinite roll loop.
+        // Enable security post-bootstrap via `az aks update --enable-acns`.
+        observability: {
+          enabled: true
+        }
+        security: {
+          enabled: false
+        }
       }
     }
 
