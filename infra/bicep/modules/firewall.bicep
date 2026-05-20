@@ -18,7 +18,6 @@ param location string
 @allowed(['standard', 'premium'])
 param egressEnforcementTier string
 
-param vnetId string
 param firewallSubnetId string
 param lawId string
 

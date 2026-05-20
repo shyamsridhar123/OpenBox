@@ -10,6 +10,7 @@ param env string
 param location string
 param acaSubnetId string
 param lawId string
+@secure()
 param appInsightsConnectionString string
 
 @description('Entra portal app ID for Easy Auth. Populate after az ad app create.')
@@ -143,7 +144,7 @@ resource controlPlaneApp 'Microsoft.App/containerApps@2024-03-01' = {
             }
           }
         ]
-        cooldownPeriod: 300  // 5 min; bounded by 4-h pod-lifetime cap in sandbox pods (plan S-C4)
+        // cooldownPeriod is not valid on the scale object in ACA schema; removed.
       }
     }
   }
@@ -208,7 +209,7 @@ resource portalApiApp 'Microsoft.App/containerApps@2024-03-01' = {
             }
           }
         ]
-        cooldownPeriod: 300
+        // cooldownPeriod is not valid on the scale object in ACA schema; removed.
       }
     }
   }
@@ -273,7 +274,7 @@ resource portalFrontendApp 'Microsoft.App/containerApps@2024-03-01' = {
             }
           }
         ]
-        cooldownPeriod: 300
+        // cooldownPeriod is not valid on the scale object in ACA schema; removed.
       }
     }
   }

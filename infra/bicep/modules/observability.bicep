@@ -160,6 +160,7 @@ FROM [audit-input]
             }
           }
           datasource: {
+            #disable-next-line BCP036
             type: 'Microsoft.OperationalInsights/workspaces'
             properties: {
               workspaceId: law.properties.customerId

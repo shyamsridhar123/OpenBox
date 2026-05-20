@@ -9,24 +9,46 @@
       "value": "eastus2"
     },
     "aksAdminGroupObjectIds": {
-      "value": [
-        "<REPLACE-WITH-ENTRA-GROUP-OID-1>"
-      ]
+      // Empty array — admin access via Azure RBAC on deployer account for v1 demo.
+      // Populate with Entra group OID(s) before granting cluster-admin to a team.
+      "value": []
     },
     "egressEnforcementTier": {
-      "value": "standard"
+      "value": "premium"
     },
     "aksServerAppId": {
-      "value": "<REPLACE-AFTER-FIRST-DEPLOY-OR-ENTRA-APP-REG>"
+      // Leave empty for first deploy; populate after: az aks show --query aadProfile.serverAppID
+      "value": ""
     },
     "apiAppId": {
-      "value": "<REPLACE-AFTER-az-ad-app-create>"
+      // TODO: run: az ad app create --display-name opensandbox-api-dev --identifier-uris api://opensandbox-api-dev --sign-in-audience AzureADMyOrg
+      // then: az ad sp create --id <appId>
+      // then replace this placeholder with the returned appId.
+      "value": "00000000-0000-0000-0000-000000000000"
     },
     "portalAppId": {
-      "value": "<REPLACE-AFTER-az-ad-app-create>"
+      // TODO: run: az ad app create --display-name opensandbox-portal-dev --sign-in-audience AzureADMyOrg
+      // Add redirect URI: https://appgw-opensandbox-dev.<region>.cloudapp.azure.com/auth/callback
+      // then: az ad sp create --id <appId>
+      // then replace this placeholder with the returned appId.
+      "value": "00000000-0000-0000-0000-000000000000"
     },
     "lawRetentionDays": {
       "value": 30
+    },
+    "kataAdminEmail": {
+      "value": "shyamsridhar@microsoft.com"
+    },
+    "acrExisting": {
+      // true = reference the already-created ACR; false = create a new one.
+      "value": true
+    },
+    "acrName": {
+      // Existing ACR created in rg-opensandbox-demo during environment bootstrap.
+      "value": "acropensandboxdemo7075"
+    },
+    "acrResourceGroup": {
+      "value": "rg-opensandbox-demo"
     }
   }
 }

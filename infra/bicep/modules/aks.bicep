@@ -14,7 +14,7 @@ param lawId string
 param acrId string
 
 @description('Kubernetes version. Update as new stable versions are available.')
-param kubernetesVersion string = '1.31'
+param kubernetesVersion string = '1.34'
 
 // ---------------------------------------------------------------------------
 // User-Assigned Managed Identity for AKS control plane
@@ -73,7 +73,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
     // bound to Entra groups. No user has cluster access without explicit group membership.
     aadProfile: {
       managed: true
-      enableAzureRBAC: false  // Use Kubernetes RBAC (not Azure RBAC) for fine-grained K8s authz
+      enableAzureRBAC: false
       adminGroupObjectIDs: aksAdminGroupObjectIds
       tenantID: subscription().tenantId
     }
@@ -114,55 +114,48 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
       }
     }
 
-    // System node pool — Standard_D4s_v5, 3 nodes, no autoscale
+    // System node pool — D4ds_v5 has local SSD required for Ephemeral OS (128 GB).
+    // Zones 2,3 only: eastus2 does not support zone 1 for managedClusters.
     agentPoolProfiles: [
       {
         name: 'system'
         mode: 'System'
         count: 3
-        vmSize: 'Standard_D4s_v5'
+        vmSize: 'Standard_D4ds_v5'
         osDiskType: 'Ephemeral'
         osDiskSizeGB: 128
         osType: 'Linux'
         osSKU: 'AzureLinux'
         vnetSubnetID: systemSubnetId
-        availabilityZones: ['1', '2', '3']
+        availabilityZones: ['2', '3']
         enableAutoScaling: false
         nodeTaints: ['CriticalAddonsOnly=true:NoSchedule']
-        nodeLabels: {
-          'kubernetes.azure.com/mode': 'system'
-        }
+        nodeLabels: {}
         upgradeSettings: {
           maxSurge: '1'
         }
       }
-      // Kata node pool — Standard_D8s_v5, Gen2, AzureLinux 3.0, autoscale 2-10
+      // Kata node pool — D8ds_v5 has local SSD required for Ephemeral OS (128 GB).
+      // Trusted Launch (secureboot/vTPM) is incompatible with KataMshvVmIsolation;
+      // isolation is provided by the Kata hypervisor. Zones 2,3 only.
       {
         name: 'kata'
         mode: 'User'
         count: 2
         minCount: 2
         maxCount: 10
-        vmSize: 'Standard_D8s_v5'
+        vmSize: 'Standard_D8ds_v5'
         osDiskType: 'Ephemeral'
         osDiskSizeGB: 128
         osType: 'Linux'
         osSKU: 'AzureLinux'
-        // Gen2 VMs required for Kata Mshv (Hyper-V) isolation
-        securityProfile: {
-          securityType: 'TrustedLaunch'
-          enableSecureBoot: true
-          enableVTPM: true
-        }
         vnetSubnetID: kataSubnetId
-        availabilityZones: ['1', '2', '3']
+        availabilityZones: ['2', '3']
         enableAutoScaling: true
-        // Kata workload runtime — provisions the kata-vm-isolation RuntimeClass
         workloadRuntime: 'KataMshvVmIsolation'
-        // Taint: only Kata-tolerating pods schedule here
         nodeTaints: ['runtime=kata:NoSchedule']
         nodeLabels: {
-          'kubernetes.azure.com/runtime': 'kata'
+          'sandbox.io/runtime': 'kata'
         }
         upgradeSettings: {
           maxSurge: '1'
@@ -170,14 +163,10 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
       }
     ]
 
-    // Auto-upgrade to patch channel only (not node OS — managed separately)
     autoUpgradeProfile: {
       upgradeChannel: 'patch'
       nodeOSUpgradeChannel: 'NodeImage'
     }
-
-    // Availability zones declared at cluster level (pool-level takes precedence)
-    // Diagnostic settings are applied in observability.bicep
   }
 
   dependsOn: [acrPullAssignment]
@@ -191,5 +180,4 @@ output aksClusterName string = aks.name
 output aksClusterId string = aks.id
 output aksMiPrincipalId string = aksMi.properties.principalId
 output aksOidcIssuerUrl string = aks.properties.oidcIssuerProfile.issuerURL
-// aadProfile.serverAppID is set by the platform; read from cluster after deploy for OBO audience
 output aksResourceId string = aks.id

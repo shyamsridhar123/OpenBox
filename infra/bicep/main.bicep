@@ -23,7 +23,7 @@ param aksAdminGroupObjectIds array
 param egressEnforcementTier string = 'standard'
 
 @description('AAD-integrated AKS server application ID (used for OBO audience). Obtain from cluster aadProfile.serverAppID after first deploy or from Entra app registration.')
-param aksServerAppId string
+param aksServerAppId string = ''
 
 @description('Entra app IDs — populated manually after running az ad app create commands in modules/entra.bicep comments.')
 param apiAppId string = ''
@@ -31,6 +31,19 @@ param portalAppId string = ''
 
 @description('Log Analytics retention days.')
 param lawRetentionDays int = 30
+
+@description('Admin email for Kata/sandbox alerts (reserved for future use — wire to action group when PagerDuty is configured).')
+#disable-next-line no-unused-params
+param kataAdminEmail string = ''
+
+@description('Name of an EXISTING ACR to reference instead of creating a new one. Only used when acrExisting=true.')
+param acrName string = ''
+
+@description('Resource group containing the existing ACR. Only used when acrExisting=true.')
+param acrResourceGroup string = 'rg-opensandbox-demo'
+
+@description('When true, reference an existing ACR (acrName/acrResourceGroup) instead of creating a new one.')
+param acrExisting bool = false
 
 // ---------------------------------------------------------------------------
 // Resource Group
@@ -79,7 +92,6 @@ module firewall 'modules/firewall.bicep' = {
     env: env
     location: location
     egressEnforcementTier: egressEnforcementTier
-    vnetId: network.outputs.vnetId
     firewallSubnetId: network.outputs.firewallSubnetId
     lawId: observability.outputs.lawId
   }
@@ -87,9 +99,11 @@ module firewall 'modules/firewall.bicep' = {
 
 // ---------------------------------------------------------------------------
 // Module: ACR
+// When acrExisting=true, reference an existing ACR (e.g. acropensandboxdemo7075 in rg-opensandbox-demo)
+// instead of creating a new one. This avoids duplicate ACR creation for demo environments.
 // ---------------------------------------------------------------------------
 
-module acr 'modules/acr.bicep' = {
+module acr 'modules/acr.bicep' = if (!acrExisting) {
   name: 'acr'
   scope: rg
   params: {
@@ -99,6 +113,12 @@ module acr 'modules/acr.bicep' = {
     vnetId: network.outputs.vnetId
     lawId: observability.outputs.lawId
   }
+}
+
+// Reference existing ACR (when acrExisting=true). Uses a resource group scope lookup.
+resource existingAcr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = if (acrExisting) {
+  name: acrName
+  scope: resourceGroup(acrResourceGroup)
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +163,9 @@ module aks 'modules/aks.bicep' = {
     systemSubnetId: network.outputs.systemSubnetId
     kataSubnetId: network.outputs.kataSubnetId
     lawId: observability.outputs.lawId
-    acrId: acr.outputs.acrId
+    // BCP318: conditional null safe — exactly one of existingAcr or acr module is active at deploy time
+    #disable-next-line BCP318
+    acrId: acrExisting ? existingAcr.id : acr.outputs.acrId!
   }
 }
 
@@ -187,7 +209,9 @@ module aca 'modules/aca.bicep' = {
 
 output resourceGroupName string = rg.name
 output aksClusterName string = aks.outputs.aksClusterName
-output acrLoginServer string = acr.outputs.acrLoginServer
+// BCP318: conditional null safe — exactly one branch active at deploy time
+#disable-next-line BCP318
+output acrLoginServer string = acrExisting ? existingAcr.properties.loginServer : acr.outputs.acrLoginServer!
 output lawId string = observability.outputs.lawId
 output acaEnvStaticIp string = aca.outputs.acaEnvStaticIp
 output firewallPrivateIp string = firewall.outputs.firewallPrivateIp

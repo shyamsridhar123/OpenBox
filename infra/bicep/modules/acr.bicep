@@ -29,14 +29,20 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
     zoneRedundancy: 'Enabled'
     publicNetworkAccess: 'Disabled'
     networkRuleBypassOptions: 'AzureServices'
-    // Soft-delete for retention of deleted images
-    softDeletePolicy: {
-      status: 'enabled'
-      retentionDays: 7
-    }
-    // Quarantine policy: images must pass Notation/Ratify before promotion
-    quarantinePolicy: {
-      status: 'enabled'
+    // Policies block: correct location per Microsoft.ContainerRegistry/registries API schema
+    policies: {
+      // Soft-delete for retention of deleted images
+      // BCP037: Bicep type defs incomplete for Policies — softDeletePolicy IS valid per ARM schema
+      #disable-next-line BCP037
+      softDeletePolicy: {
+        status: 'enabled'
+        retentionDays: 7
+      }
+      // Quarantine policy: images must pass Notation/Ratify before promotion
+      #disable-next-line BCP037
+      quarantinePolicy: {
+        status: 'enabled'
+      }
     }
     // Geo-replication: no replicas in v1; add replicas here for v1.5
     // replications: []

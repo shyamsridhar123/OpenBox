@@ -60,6 +60,7 @@ resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
 // test (see plan pre-mortem #2, Task 1.3 addition).
 // ---------------------------------------------------------------------------
 
+#disable-next-line BCP081
 resource notationCertPrimary 'Microsoft.KeyVault/vaults/certificates@2023-07-01' = {
   parent: kv
   name: 'notation-primary'
@@ -101,6 +102,7 @@ resource notationCertPrimary 'Microsoft.KeyVault/vaults/certificates@2023-07-01'
   }
 }
 
+#disable-next-line BCP081
 resource notationCertSecondary 'Microsoft.KeyVault/vaults/certificates@2023-07-01' = {
   parent: kv
   name: 'notation-secondary'
