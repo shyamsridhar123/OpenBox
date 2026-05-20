@@ -1,8 +1,13 @@
 // modules/observability.bicep — LAW, App Insights, Event Hubs, Stream Analytics
 // Plan reference: Phase 1 Task 1.6 (B-C3 fix) — audit log path:
-//   Diagnostic Settings → Event Hubs → Stream Analytics → Log Analytics (SandboxAuditFast_CL)
-//   for sub-60-s ingestion. Container Insights handles routine non-audit logs.
+//   Diagnostic Settings → Event Hubs → Stream Analytics → Blob Storage (staging)
+//   Log Analytics ingests from Blob via DCR/Data Collection in Phase 2.
+//   Container Insights handles routine non-audit logs.
 // Also: Defender-Kata-gap KQL alert (Critic S-C3 fix).
+//
+// NOTE: ASA does not support direct output to Log Analytics workspaces.
+//   The original design (ASA → LAW custom table) is replaced with ASA → Blob staging.
+//   Custom log ingestion into LAW can be achieved via the Logs Ingestion API / DCR post-deploy.
 
 targetScope = 'resourceGroup'
 
@@ -96,8 +101,35 @@ resource ehStreamAnalyticsRule 'Microsoft.EventHub/namespaces/eventhubs/authoriz
 }
 
 // ---------------------------------------------------------------------------
-// Stream Analytics Job — input=EventHub, output=LAW custom table SandboxAuditFast_CL
-// This is a stub; the transformation query must be finalized in Phase 1 Task 1.6.
+// Storage Account — ASA audit staging (ASA cannot output directly to LAW)
+// Events land here; custom log ingestion via DCR/Logs Ingestion API in Phase 2.
+// ---------------------------------------------------------------------------
+
+resource asaStagingStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: 'stasa${env}${substring(uniqueString(resourceGroup().id), 0, 13)}'
+  location: location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  properties: {
+    accessTier: 'Hot'
+    minimumTlsVersion: 'TLS1_2'
+    allowBlobPublicAccess: false
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource asaStagingContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  name: '${asaStagingStorage.name}/default/audit-fast'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Stream Analytics Job — input=EventHub, output=Blob staging
+// ASA does not support Microsoft.OperationalInsights/workspaces as an output sink.
 // ---------------------------------------------------------------------------
 
 resource streamAnalyticsJob 'Microsoft.StreamAnalytics/streamingjobs@2021-10-01-preview' = {
@@ -108,8 +140,6 @@ resource streamAnalyticsJob 'Microsoft.StreamAnalytics/streamingjobs@2021-10-01-
     eventsOutOfOrderPolicy: 'Adjust'
     eventsOutOfOrderMaxDelayInSeconds: 5
     compatibilityLevel: '1.2'
-    // Query: passthrough from EventHub to LAW custom table
-    // Finalize field mappings in Phase 1 before go-live.
     transformation: {
       name: 'MainTransformation'
       properties: {
@@ -160,18 +190,25 @@ FROM [audit-input]
             }
           }
           datasource: {
-            #disable-next-line BCP036
-            type: 'Microsoft.OperationalInsights/workspaces'
+            type: 'Microsoft.Storage/Blob'
             properties: {
-              workspaceId: law.properties.customerId
-              workspaceKey: law.listKeys().primarySharedKey
-              tableName: 'SandboxAuditFast_CL'
+              storageAccounts: [
+                {
+                  accountName: asaStagingStorage.name
+                  accountKey: asaStagingStorage.listKeys().keys[0].value
+                }
+              ]
+              container: 'audit-fast'
+              pathPattern: '{date}/{time}'
+              dateFormat: 'yyyy/MM/dd'
+              timeFormat: 'HH'
             }
           }
         }
       }
     ]
   }
+  dependsOn: [asaStagingContainer]
 }
 
 // ---------------------------------------------------------------------------
@@ -211,8 +248,6 @@ ContainerLog
       ]
     }
     autoMitigate: false
-    // ACTION GROUP: wire to PagerDuty action group post-deploy
-    // actions: { actionGroups: ['<action-group-id>'] }
   }
 }
 
@@ -230,3 +265,4 @@ output ehNamespaceId string = ehNamespace.id
 output ehNamespaceName string = ehNamespace.name
 output ehAuditName string = ehAudit.name
 output ehDiagSendRuleId string = ehDiagSendRule.id
+output asaStagingStorageName string = asaStagingStorage.name
