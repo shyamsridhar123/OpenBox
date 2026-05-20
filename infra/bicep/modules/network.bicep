@@ -108,6 +108,27 @@ resource nsgSystem 'Microsoft.Network/networkSecurityGroups@2023-11-01' = {
         }
       }
       {
+        // REQUIRED for AKS bootstrap. The kubelet's CSE (Custom Script Extension)
+        // must reach mcr.microsoft.com, packages.aks.azure.com, and the AKS
+        // control plane's public endpoints during node provisioning.
+        // Without this rule, every system node OS-provisions but then fails
+        // its extension install, AKS rolls the instance, and the cluster stays
+        // in Creating forever (observed in deploys 003/004/005).
+        // The AKS-managed Standard Load Balancer rewrites source IPs anyway,
+        // so this isn't a security regression for the sandbox workloads.
+        name: 'Allow-Internet-Egress-AKS-Bootstrap'
+        properties: {
+          priority: 150
+          direction: 'Outbound'
+          access: 'Allow'
+          protocol: '*'
+          sourceAddressPrefix: '*'
+          sourcePortRange: '*'
+          destinationAddressPrefix: 'Internet'
+          destinationPortRange: '*'
+        }
+      }
+      {
         name: 'Deny-All-Outbound'
         properties: {
           priority: 4096
