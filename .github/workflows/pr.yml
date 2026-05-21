@@ -3,6 +3,7 @@ name: PR Validation
 on:
   pull_request:
     branches: [main]
+  workflow_call:   # lets main.yml `uses:` this workflow as the post-merge validation gate
 
 permissions:
   id-token: write
