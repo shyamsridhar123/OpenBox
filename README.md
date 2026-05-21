@@ -10,7 +10,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/shyamsridhar123/DarkForge/actions/workflows/main.yml"><img src="https://github.com/shyamsridhar123/DarkForge/actions/workflows/main.yml/badge.svg?branch=main" alt="Main CI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
   <a href="THIRD_PARTY_LICENSES.md"><img src="https://img.shields.io/badge/built%20on-OpenSandbox-262626?logo=alibabacloud&logoColor=white" alt="Built on OpenSandbox (Apache-2.0)" /></a>
   <img src="https://img.shields.io/badge/cloud-Azure-0078D4?logo=microsoftazure&logoColor=white" alt="Azure" />
