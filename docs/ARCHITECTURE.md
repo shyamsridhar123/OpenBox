@@ -7,10 +7,12 @@ labelled "current state, may drift" depend on live cluster output rather than co
 
 ## TL;DR
 
-OpenSandbox on Azure is the upstream [alibaba/OpenSandbox](https://github.com/alibaba/OpenSandbox)
-control plane running on AKS, with Kata Containers providing per-pod VM-grade isolation.
-Everything else — registry, firewall, audit pipeline, identity, Foundry integration — is the
-Azure landing zone wrapped around it. The trust boundary is **Kata**, not the Linux namespace.
+OpenBox on Azure is a sandbox runtime running on AKS, with Kata Containers providing per-pod
+VM-grade isolation. Everything else — registry, firewall, audit pipeline, identity, Foundry
+integration — is the Azure landing zone wrapped around it. The trust boundary is **Kata**, not
+the Linux namespace. The runtime itself is vendored under
+[`third_party/opensandbox/`](../third_party/opensandbox/); see
+[`../THIRD_PARTY_LICENSES.md`](../THIRD_PARTY_LICENSES.md) for attribution.
 
 ## Component map
 
@@ -21,7 +23,7 @@ Azure landing zone wrapped around it. The trust boundary is **Kata**, not the Li
                                      v
         +-----------------------+        +-----------------------+
         | Microsoft Foundry     |        | developer SDK         |
-        | aihubeastus26267492086|        | (opensandbox python)  |
+        | aihubeastus26267492086|        | (sandbox python)      |
         | Kimi-K2.5 / Kimi-K2.6 |        |  kubectl port-forward |
         +-----------+-----------+        +-----------+-----------+
                     |                                |
@@ -33,14 +35,14 @@ Azure landing zone wrapped around it. The trust boundary is **Kata**, not the Li
                            |    |  v1.34.7, Azure CNI Overlay, Cilium |
                            |    |                                     |
                            |    |  +-------------------------------+  |
-                           |    |  | opensandbox-server (FastAPI)  |  |
+                           |    |  | sandbox server (FastAPI)      |  |
                            |    +->|   POST /v1/sandboxes ...      |  |
                            |       |   WebSocket exec              |  |
                            |       +---------------+---------------+  |
                            |                       |                  |
                            |                       v                  |
                            |       +-------------------------------+  |
-                           |       | opensandbox-controller-mgr    |  |
+                           |       | sandbox controller-manager    |  |
                            |       | (Go, watches BatchSandbox CRD)|  |
                            |       +---------------+---------------+  |
                            |                       |                  |
@@ -111,7 +113,7 @@ The eleven components from the operator's mental model:
 
 1. AKS cluster `aks-opensandbox-dev`
 2. Kata sandbox node pool + `kata-vm-isolation` runtime class
-3. OpenSandbox control plane (controller, server, `execd`)
+3. Sandbox control plane (controller, server, `execd`) — vendored runtime
 4. ACR Premium `acropensandboxdemo7075` + private endpoint
 5. Azure Firewall Premium `afw-opensandbox-dev` + UDR
 6. Cilium dataplane + ACNS (Hubble UI, L7 FQDN policies)
@@ -284,8 +286,9 @@ The fix is two-fold and both halves matter:
 2. Image-level: the `Dockerfile` for `execd` runs `sed -i 's/\r$//' bootstrap.sh` as a belt-and-
    braces guard against any other tool inserting CRs.
 
-This is also why `third_party/opensandbox/sandboxes/base/bootstrap.sh` is one of the two upstream
-patches we carry — the upstream tree assumes Linux-only contributors, which is no longer true.
+This is also why `third_party/opensandbox/sandboxes/base/bootstrap.sh` is one of the two
+patches we carry against the vendored tree — that codebase assumes Linux-only contributors,
+which is no longer true.
 
 ## References
 
@@ -294,4 +297,4 @@ patches we carry — the upstream tree assumes Linux-only contributors, which is
 - [AKS Pod Sandboxing (Kata)](https://learn.microsoft.com/azure/aks/use-pod-sandboxing)
 - [AKS Workload Identity overview](https://learn.microsoft.com/azure/aks/workload-identity-overview)
 - [Azure Firewall Premium](https://learn.microsoft.com/azure/firewall/premium-features)
-- [Alibaba OpenSandbox](https://github.com/alibaba/OpenSandbox)
+- [Vendored sandbox runtime attribution](../THIRD_PARTY_LICENSES.md)

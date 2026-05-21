@@ -1,6 +1,6 @@
 # Roadmap
 
-Snapshot of what is complete, what is deferred, and what is queued next for OpenSandbox on Azure.
+Snapshot of what is complete, what is deferred, and what is queued next for OpenBox on Azure.
 Updated 2026-05-20.
 
 ## Done
@@ -9,9 +9,9 @@ Updated 2026-05-20.
 |---|---|---|
 | Phase 0 | Kata Pod Sandboxing on AKS validated; Cilium L7 on Kata pods works | [evidence/runs/finish/kata-smoke-evidence.txt](evidence/runs/finish/kata-smoke-evidence.txt), [kata-runtimeclass.yaml](evidence/runs/finish/kata-runtimeclass.yaml) |
 | Phase 1 | AKS cluster `aks-opensandbox-dev` (1.34.7) + Kata node pool + Azure CNI Overlay + Cilium | [cluster-state.json](evidence/runs/finish/cluster-state.json), [kata-nodes.txt](evidence/runs/finish/kata-nodes.txt) |
-| Phase 2 | Upstream OpenSandbox (controller, server, execd v1.0.8 with CRLF fix) deployed via Helm | `infra/helm/opensandbox/`, `third_party/opensandbox/` |
+| Phase 2 | Vendored sandbox runtime (controller, server, execd v1.0.8 with CRLF fix) deployed via Helm | `infra/helm/opensandbox/`, `third_party/opensandbox/` |
 | Phase 3 | End-to-end laptop SDK demo: `Sandbox.create` → Kata pod → command exec → result | [sdk_e2e.py](evidence/runs/finish/sdk_e2e.py) / [sdk_e2e.log](evidence/runs/finish/sdk_e2e.log) — RUN-4 SUCCESS |
-| Phase 3 | Kimi K2.5 agentic demo through OpenSandbox SDK | [kimi_via_osb.py](evidence/runs/finish/kimi_via_osb.py) / [kimi-via-osb.log](evidence/runs/finish/kimi-via-osb.log) — PASS, SUM=88 |
+| Phase 3 | Kimi K2.5 agentic demo through the sandbox SDK | [kimi_via_osb.py](evidence/runs/finish/kimi_via_osb.py) / [kimi-via-osb.log](evidence/runs/finish/kimi-via-osb.log) — PASS, SUM=88 |
 | Phase 3 | In-cluster Workload Identity variant of the Kimi demo | [kimi-demo.yaml](evidence/runs/finish/kimi-demo.yaml) / [kimi-demo-success.log](evidence/runs/finish/kimi-demo-success.log), [wi-federated-credential.json](evidence/runs/finish/wi-federated-credential.json) |
 | FINISH-4 | Azure Firewall Premium + policy + UDR for Kata egress | [FINISH-4-fw-runbook.md](evidence/runs/finish/FINISH-4-fw-runbook.md), [fw-failure-trace.md](evidence/runs/finish/fw-failure-trace.md) |
 | FINISH-5 | ACR Premium private endpoint, public access disabled, DNS linked | [FINISH-5-acr-pe-runbook.md](evidence/runs/finish/FINISH-5-acr-pe-runbook.md) |

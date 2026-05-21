@@ -1,6 +1,6 @@
 # Documentation Index
 
-Top-level entry point for the OpenSandbox-on-Azure documentation.
+Top-level entry point for the OpenBox-on-Azure documentation.
 
 ## Start here
 
@@ -24,10 +24,11 @@ Top-level entry point for the OpenSandbox-on-Azure documentation.
   `kimi-via-osb.log`, `kimi-demo-success.log`) and per-FINISH-slice runbooks.
 - [runbooks/](../runbooks/) — generic ops runbooks (IR, onboarding, CVE response, DR drill).
 
-## Upstream
+## Vendored runtime
 
-- [third_party/opensandbox/](../third_party/opensandbox/) — vendored upstream Alibaba
-  OpenSandbox. Treat as read-only; sync via the upstream-sync workflow.
-- Patches against upstream are limited to:
+- [third_party/opensandbox/](../third_party/opensandbox/) — vendored sandbox runtime
+  (see [`../THIRD_PARTY_LICENSES.md`](../THIRD_PARTY_LICENSES.md) for attribution).
+  Treat as read-only; sync via the upstream-sync workflow.
+- Patches against the vendored tree are limited to:
   1. `goproxy.cn` → `proxy.golang.org` (build-time)
   2. CRLF protection on shell scripts (`.gitattributes` + `sed` in Dockerfile)

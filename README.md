@@ -1,17 +1,77 @@
-# OpenSandbox on Azure
+# OpenBox on Azure
 
-A working deployment of the upstream [alibaba/OpenSandbox](https://github.com/alibaba/OpenSandbox)
-control plane on Azure Kubernetes Service, with Kata Containers providing per-pod VM-grade
-isolation for untrusted code. The stack is wired end-to-end: a developer SDK on a laptop, or a
+A working Azure deployment of a Kubernetes-native, Kata-isolated sandbox runtime for executing
+untrusted or AI-generated code. The stack is wired end-to-end: a developer SDK on a laptop, or a
 Kimi K2.5/K2.6 model deployment in Microsoft Foundry, can call `Sandbox.create`, get back a
-running Kata-isolated pod, execute code, and read results — through the same OpenSandbox
-controller, server, and `execd` daemon that ships upstream, with only minimal patches
-(goproxy.cn → proxy.golang.org and a CRLF fix in `bootstrap.sh`).
+running Kata-isolated pod, execute code, and read results.
 
-This repo is **not** a fork of upstream OpenSandbox. The upstream tree is vendored under
-[`third_party/opensandbox/`](third_party/opensandbox/) and consumed unchanged except for the two
-patches above. Everything in [`infra/`](infra/) and the docs you are reading describe the Azure
-landing zone around it.
+Everything in this repo describes the Azure landing zone — the AKS cluster, Kata node pool,
+ACR Premium with private endpoint, Azure Firewall egress, Event Hubs/Stream Analytics audit
+pipeline, Workload Identity, ACA control plane, and the deployment IaC. The sandbox runtime
+itself (controller, server, `execd`) is consumed unchanged from a third-party project vendored
+under [`third_party/opensandbox/`](third_party/opensandbox/) — see the Acknowledgement at the
+bottom of this file for attribution and license.
+
+## Why this exists — motivation & philosophy
+
+The bottleneck for distributed AI engineering at most enterprises is not the model. It's
+the **execution substrate** the agents run against. An AI agent that cannot reliably and
+safely execute its own generated code, in parallel, with the same identity and audit story
+as a human engineer, is a chatbot — not a teammate.
+
+The project's premise is one sentence:
+
+> **An engineer with a fleet of safely-parallel sandboxes can do 100× more distributed
+> AI engineering than the same engineer typing into a single shell.**
+
+To make that real inside an enterprise, four properties have to hold simultaneously, and
+they're hard to get *together* — which is the gap this repo fills:
+
+1. **Hard isolation, not soft.** Untrusted or AI-generated code runs against your network,
+   your secrets, and your data plane. Shared-kernel containers are a single Linux LPE away
+   from your AKS node. The trust boundary here is **Kata Containers** — per-pod VM-grade
+   isolation with its own guest kernel — not a Linux namespace. A container escape earns
+   the attacker an empty disposable VM.
+
+2. **Per-user identity, end to end.** Every sandbox action traces to a real Entra ID
+   identity via OBO → Workload Identity → projected SA token. No shared service-principal
+   "platform" account erasing the user in audit logs. An agent acting on behalf of an
+   engineer leaves the engineer's name on every API call, every egress flow, every secret
+   fetch.
+
+3. **Deny-by-default at every layer.** Azure Policy in Deny mode, Cilium L7 FQDN
+   allowlist on egress, Azure Firewall Premium as the network backstop, Kubernetes RBAC
+   bound to Entra groups, ACR public access disabled with a private endpoint, signed
+   images at admission. Anything not explicitly permitted is dropped — and the audit
+   pipeline sees it drop.
+
+4. **Reproducible, evidence-bearing IaC.** Bicep for the landing zone, Helm for the
+   runtime, runbooks per slice, and `evidence/runs/finish/` carrying the literal stdout
+   of every end-to-end verification. The whole thing should rebuild from a fresh
+   subscription with `az deployment sub create` plus a Helm install — no clicks, no
+   tribal knowledge.
+
+### The 100× thesis, concretely
+
+A single engineer driving a fleet of these sandboxes can:
+
+- **Parallelise grunt work** — run hundreds of small evaluations, dependency
+  upgrades, security scans, doc generations, or migrations concurrently, each in its own
+  Kata pod, each attributed to the engineer, each isolated from the others.
+- **Let agents iterate safely** — give a Kimi-K2.5 / GPT / Claude agent a sandbox it
+  can write to, break, and discard, without ever touching the engineer's laptop or the
+  shared infra. The agent's blast radius is the inside of one VM.
+- **Treat code execution as a cloud primitive** — `Sandbox.create()` is as cheap to
+  call as `BlobClient.upload()`. Once the substrate is solid, the engineer stops
+  thinking about *where* code runs and starts thinking about *what* runs.
+- **Keep the auditor happy** — every command, every egress destination, every secret
+  read flows into Event Hubs → Stream Analytics → Log Analytics inside ≤60 s, attributed
+  to a real user OID. There is no "AI used my creds and we don't know what it did"
+  failure mode.
+
+This is the substrate. The agents, the evaluation harnesses, the migration scripts —
+those are what you build *on top* of it. The repo is the thing nobody wants to build
+twice.
 
 ## What's actually running right now
 
@@ -21,7 +81,7 @@ both in `eastus2`. Verified end-to-end by the runs under [`evidence/runs/finish/
 | Layer | Resource | Notes |
 |---|---|---|
 | Cluster | `aks-opensandbox-dev` | Kubernetes 1.34.7, Azure CNI Overlay + Cilium dataplane, ACNS + Hubble UI |
-| System pool | 3 nodes (runc) | OpenSandbox controller, server, ingress, system addons |
+| System pool | 3 nodes (runc) | Sandbox controller, server, ingress, system addons |
 | Kata pool | Kata Containers, `kata-vm-isolation` runtime class | Cloud Hypervisor (MSHV), inner-VM kernel `6.6.130.1-3.azl3` (Azure Linux 3) |
 | Container registry | `acropensandboxdemo7075` (ACR Premium) | Public access disabled, private endpoint `pe-acr-opensandbox-dev` (10.10.12.6), private DNS zone `privatelink.azurecr.io` |
 | Egress firewall | `afw-opensandbox-dev` (Azure Firewall Premium) | Private IP 10.10.10.4, policy `afwp-opensandbox-dev`, two rule collection groups (`rcg-aks-bootstrap` p100, `rcg-sandbox-egress` p200), deny-all at p300 |
@@ -44,10 +104,10 @@ Path A — Laptop SDK (sdk_e2e.py)
    developer laptop                       AKS cluster (aks-opensandbox-dev)
   +-----------------+                +------------------------------------------+
   |                 |                |                                          |
-  |  Sandbox.create | --HTTP-->      |  opensandbox-server (FastAPI)            |
+  |  Sandbox.create | --HTTP-->      |  sandbox server (FastAPI)                |
   |  Python SDK     |  kubectl       |     |                                    |
   |                 |  port-forward  |     v  creates BatchSandbox CR           |
-  |  api-key auth   |  :18080        |  opensandbox-controller-manager (Go)     |
+  |  api-key auth   |  :18080        |  sandbox controller-manager (Go)         |
   +-----------------+                |     |                                    |
                                      |     v  schedules pod onto Kata pool      |
                                      |  +----------------------------------+   |
@@ -76,11 +136,11 @@ Path B — Kimi agentic app (kimi_via_osb.py)
        | code in <code>...</code>              | generated Python
        |                                       v
   +----+-------------------------------------------------------------+
-  | kimi_via_osb.py — extracts code, hands to OpenSandbox SDK        |
+  | kimi_via_osb.py — extracts code, hands to the sandbox SDK         |
   +------------------------------------------------------------------+
                                        |
                                        v   (same path as A from here)
-                              opensandbox-server -> controller -> Kata pod
+                              sandbox server -> controller -> Kata pod
                                        |
                                        v
                               python3 /tmp/kimi_code.py inside the sandbox
@@ -102,10 +162,10 @@ These steps assume an operator with cluster-admin (or equivalent kubelogin) acce
 az login
 az aks get-credentials -g rg-opensandbox-dev -n aks-opensandbox-dev --overwrite-existing
 
-# 1. Install the upstream SDK from the vendored tree
+# 1. Install the sandbox Python SDK from the vendored tree
 pip install -e third_party/opensandbox/sdks/python
 
-# 2. Port-forward the OpenSandbox server to localhost:18080
+# 2. Port-forward the sandbox server to localhost:18080
 kubectl -n opensandbox-system port-forward svc/opensandbox-server 18080:8080 &
 
 # 3. Drop the server API key next to the demo script
@@ -131,9 +191,9 @@ checked in under [`evidence/runs/finish/`](evidence/runs/finish/) — `sdk_e2e.l
 
 | Path | Purpose |
 |---|---|
-| [`third_party/opensandbox/`](third_party/opensandbox/) | Upstream Alibaba OpenSandbox, vendored. Do not edit; sync via the upstream-sync workflow. |
+| [`third_party/opensandbox/`](third_party/opensandbox/) | Third-party sandbox runtime, vendored. Do not edit; sync via the upstream-sync workflow. |
 | [`infra/bicep/`](infra/bicep/) | Subscription-scope Bicep for the Azure landing zone (cluster, ACR, firewall, audit). Owned by infra workstream. |
-| [`infra/helm/opensandbox/`](infra/helm/opensandbox/) | Helm chart deploying the upstream images (controller, server, execd) with Azure-specific values. |
+| [`infra/helm/opensandbox/`](infra/helm/opensandbox/) | Helm chart deploying the sandbox runtime images (controller, server, execd) with Azure-specific values. |
 | [`apps/`](apps/) | Forthcoming control-plane services on ACA (FastAPI, portal). FINISH-7 work in progress. |
 | [`sdks/`](sdks/) | Azure-flavored SDK wrappers and examples. |
 | [`docs/`](docs/) | This documentation set. |
@@ -150,7 +210,7 @@ checked in under [`evidence/runs/finish/`](evidence/runs/finish/) — `sdk_e2e.l
 - [docs/acceptance-checklist.md](docs/acceptance-checklist.md) — the 34 acceptance criteria for v1.
 - [ROADMAP.md](ROADMAP.md) — what is done, what is deferred, what is next.
 
-## Patches against upstream
+## Patches against the vendored runtime
 
 There are exactly two delta points against `third_party/opensandbox/`:
 
@@ -159,7 +219,16 @@ There are exactly two delta points against `third_party/opensandbox/`:
    sandbox before the daemon attaches). Enforced by `.gitattributes`. See
    [docs/ARCHITECTURE.md#the-crlf-bootstrap-story](docs/ARCHITECTURE.md#the-crlf-bootstrap-story).
 
-## License
+## Acknowledgement and licenses
 
-This wrapper is provided under the repo `LICENSE`. Upstream OpenSandbox is licensed under its own
-terms — see [`third_party/opensandbox/LICENSE`](third_party/opensandbox/LICENSE).
+This wrapper — the Azure landing zone, IaC, docs, SDK wrappers, and evidence under this
+repo — is licensed under the MIT [`LICENSE`](LICENSE).
+
+The sandbox runtime under [`third_party/opensandbox/`](third_party/opensandbox/) is the
+upstream [alibaba/OpenSandbox](https://github.com/alibaba/OpenSandbox) project (Apache
+License 2.0, © Alibaba Group and contributors). It is vendored unmodified except for the
+two patches listed above, both of which are documented in
+[`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) as required by Apache-2.0 §4(b).
+The upstream LICENSE is preserved at
+[`third_party/opensandbox/LICENSE`](third_party/opensandbox/LICENSE) and applies to all
+files in that directory. See also [`NOTICE`](NOTICE).

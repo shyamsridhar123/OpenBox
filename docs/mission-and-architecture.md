@@ -1,4 +1,4 @@
-# OpenSandbox-on-Azure — Mission, Rationale & Architecture
+# OpenBox-on-Azure — Mission, Rationale & Architecture
 
 > **Source of truth:**
 > - Spec: [`.omc/specs/deep-dive-implement-opensandbox-in-azure.md`](../.omc/specs/deep-dive-implement-opensandbox-in-azure.md) (ambiguity 14%, 34 ACs)
@@ -23,7 +23,7 @@
 
 ### Restated as a goal (from the spec, §Goal)
 
-Implement Alibaba's **OpenSandbox** — a general-purpose AI-agent sandbox platform (FastAPI control plane, an execution daemon, Kubernetes runtime with CRDs, gVisor/Kata/Firecracker isolation, multi-language SDKs) — on **Microsoft Azure**, with **conceptual parity to Azure Dev Box's governance and image-management model** (DevCenter→Project→Pool hierarchy, image-definition YAML, RBAC, network connections, autostop).
+Stand up a general-purpose AI-agent sandbox platform (FastAPI control plane, an execution daemon, Kubernetes runtime with CRDs, gVisor/Kata/Firecracker isolation, multi-language SDKs) on **Microsoft Azure**, with **conceptual parity to Azure Dev Box's governance and image-management model** (DevCenter→Project→Pool hierarchy, image-definition YAML, RBAC, network connections, autostop). The sandbox runtime is consumed from a vendored third-party project under [`third_party/opensandbox/`](../third_party/opensandbox/) — see [`../THIRD_PARTY_LICENSES.md`](../THIRD_PARTY_LICENSES.md).
 
 ### v1 scope (4-6 weeks)
 
@@ -49,7 +49,7 @@ Windows sandboxes · GUI/RDP/desktop · multi-cloud / hybrid · multi-region (ar
 1. **Trust boundary lives in Kata, not in namespaces.** All sandbox pods run `runtimeClassName: kata-vm-isolation`. Namespaces are logical isolation only. Kata's trust boundary is verified by a deterministic container-escape test (Phase 6 task 6.7).
 2. **Identity is end-to-end and per-user.** Every action traces to an Entra user OID via OBO → JWT → Workload Identity. The opt-in `low_latency=true` shared-pool tier is the **only** exception, and it is explicitly audited, role-gated, and rate-limited.
 3. **Deny by default at every layer.** Azure Policy Deny mode, Cilium NetworkPolicy default-deny, Ratify-required signatures, Azure Firewall allowlist, AKS Kubernetes-RBAC default-deny bound to Entra groups.
-4. **Validate upstream and integration assumptions before building.** Phase 0 tasks 0.1-0.4 cover OpenSandbox CRD scope + Cilium-ACNS-on-Kata L7 behavior. Phase 0 gates Phase 1.
+4. **Validate upstream and integration assumptions before building.** Phase 0 tasks 0.1-0.4 cover the runtime CRD scope + Cilium-ACNS-on-Kata L7 behavior. Phase 0 gates Phase 1.
 5. **MVP is verifiable end-to-end, not feature-complete.** Every AC is testable by `kubectl`, `curl`, load test, log query, portal screenshot, or PoC exploit. Measurement procedures are defined for every numeric SLA.
 
 ### 2.2 The three decision drivers (RALPLAN §Decision Drivers)
@@ -64,11 +64,11 @@ Windows sandboxes · GUI/RDP/desktop · multi-cloud / hybrid · multi-region (ar
 |---|---|---|
 | **A — Everything on AKS (single-plane)** | Live fallback | Reinstated; triggered if Phase 0 task 0.4 reveals blocking issues. |
 | **B — Hybrid ACA + AKS+Kata** | **CHOSEN** | Best velocity; ACA gives free Easy Auth + KEDA + managed TLS for the control plane; AKS gives K8s CRDs + Kata for the runtime. |
-| **C — ACA Dynamic Sessions replacing K8s runtime** | Rejected | No per-namespace UAMI projection, no Cilium NetworkPolicy at pod level, no CRD support — would require forking and replacing OpenSandbox's runtime layer. |
+| **C — ACA Dynamic Sessions replacing K8s runtime** | Rejected | No per-namespace UAMI projection, no Cilium NetworkPolicy at pod level, no CRD support — would require forking and replacing the sandbox runtime layer. |
 | **D — Kata Confidential Containers (SEV-SNP)** | Rejected for v1 | Same Defender-coverage gap as plain Kata; adds SEV-SNP attestation complexity for which v1 has no compliance driver. Architecture preserves the upgrade path (one-line `runtimeClassName` swap). |
 | **E — AKS Automatic mode** | Rejected for v1 | Doesn't expose node-pool taint/toleration / runtimeClass at the level Kata Pod Sandboxing requires. Revisit at v1.5 when Automatic-mode Kata is GA. |
 
-### 2.4 What "parity with Dev Box" means (spec §Dev-Box → OpenSandbox mapping)
+### 2.4 What "parity with Dev Box" means (spec §Dev-Box → sandbox mapping)
 
 Conceptual parity on **governance and image management**, not on **product surface**. Concretely:
 
@@ -98,7 +98,7 @@ Dropped because they're Windows-bound and we are Linux-only: Intune enrollment, 
 | FastAPI control plane | ACA revision | Auto-scaling via KEDA HTTP scaler; `minReplicas: 1` (cold-start SLA) |
 | Portal frontend (React/Blazor) | ACA revision | ACA Easy Auth (Entra SSO) |
 | Portal API | ACA revision | Reads Log Analytics + AKS API |
-| OpenSandbox K8s controller | AKS Deployment in `opensandbox-system` ns | RBAC scoped (NOT cluster-admin) |
+| OpenSandbox K8s controller | AKS Deployment in `opensandbox-system` ns | RBAC scoped (NOT cluster-admin) — vendored runtime, see [`THIRD_PARTY_LICENSES.md`](../THIRD_PARTY_LICENSES.md) |
 | Execution daemon | AKS DaemonSet on Kata nodes | Runs as `runc`, not Kata |
 | Sandbox pods | AKS Pod, `runtimeClassName: kata-vm-isolation` | Per-user namespace `ns-<user-oid>` |
 | Sandbox images | ACR Premium repo `sandbox/*` | Notation-signed |
@@ -110,7 +110,7 @@ Dropped because they're Windows-bound and we are Linux-only: Intune enrollment, 
 
 ### 3.2 Constraints in force (spec §Constraints)
 
-- **Compute substrate:** Hybrid — ACA hosts the FastAPI control plane + read-only portal frontend + portal API; AKS hosts OpenSandbox's K8s controller + CRDs + execution-daemon DaemonSet + sandbox pods.
+- **Compute substrate:** Hybrid — ACA hosts the FastAPI control plane + read-only portal frontend + portal API; AKS hosts the sandbox K8s controller + CRDs + execution-daemon DaemonSet + sandbox pods.
 - **Sandbox isolation:** AKS Pod Sandboxing with **Kata Containers** (GA) on **Azure Linux 3.0 + Gen2 VMs**, `runtimeClassName: kata-vm-isolation`. Mandatory for all sandbox pods.
 - **Tenancy model:** Agent-as-tenant — single AKS cluster, namespace-per-user. Kata = primary trust boundary; namespaces = soft logical separation.
 - **Region:** East US 2 (single region for v1; architecture parameterizable).
@@ -125,7 +125,7 @@ Dropped because they're Windows-bound and we are Linux-only: Intune enrollment, 
 
 ```
 SDK
- │  Entra Bearer; scope = api://opensandbox/.default
+ │  Entra Bearer; scope = api://openbox/.default
  ▼
 ACA control plane (FastAPI)
  │  1. Validate JWT signature against Entra JWKS
@@ -163,7 +163,7 @@ execd writes audit row: user_oid, session_id, command, exit_code, egress_dest, t
 │    - Runs as runc on ACA managed surface                    │
 ├────────────────────────────────────────────────────────────┤
 │  Semi-trusted: AKS control plane                            │
-│    - OpenSandbox controller (runc, system pool)             │
+│    - Sandbox controller (runc, system pool)                 │
 │    - execd DaemonSet (runc on Kata pool — it's infra)       │
 │    - Controller NOT cluster-admin; namespace-scoped RBAC    │
 ├────────────────────────────────────────────────────────────┤
@@ -232,7 +232,7 @@ The Phase 0 spike outcome is recorded in `docs/integration-spikes.md`; Task 1.5 
 | **Image definition** | YAML spec layering custom tasks on a curated base. v1.5 feature. |
 | **Curated base image** | Notation-signed ACR image maintained by the platform team. v1 has 3-4. |
 | **Control plane** | FastAPI + portal API + portal frontend on ACA. |
-| **Runtime plane** | OpenSandbox controller + execd + sandbox pods on AKS. |
+| **Runtime plane** | Sandbox controller + execd + sandbox pods on AKS (vendored runtime). |
 | **Audit log** | Structured Log Analytics entry: `user_oid, session_id, command, exit_code, egress_dest, ts, trace_id`. |
 | **Notation signature** | Notary v2 signature stored as OCI referrer in ACR; enforced at admission by Ratify + Gatekeeper. |
 
@@ -276,7 +276,7 @@ Until those five flip to ✅, this build is not done. The Stop hook is enforcing
 
 ## 5. References
 
-- [Alibaba OpenSandbox](https://github.com/alibaba/OpenSandbox) — the project being implemented.
+- [Vendored sandbox runtime attribution](../THIRD_PARTY_LICENSES.md) — third-party project and license details.
 - [Azure Dev Box features](https://azure.microsoft.com/en-us/products/dev-box/#features) — the conceptual peer we're aiming at parity with.
 - [AKS Pod Sandboxing (Kata)](https://learn.microsoft.com/azure/aks/use-pod-sandboxing)
 - [AKS Workload Identity](https://learn.microsoft.com/azure/aks/workload-identity-overview)

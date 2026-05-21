@@ -1,7 +1,7 @@
 # Developer Experience
 
-This document is the on-ramp for a developer at our company who wants to use the
-OpenSandbox runtime to execute untrusted or AI-generated code. It is the
+This document is the on-ramp for a developer at our company who wants to use the OpenBox
+sandbox runtime to execute untrusted or AI-generated code. It is the
 operating manual for the SDK and the surrounding workflow. For the underlying
 platform shape (CRDs, controller, firewall, ACA wiring) see
 [`docs/ARCHITECTURE.md`](ARCHITECTURE.md). For day-2 operations see
@@ -11,7 +11,7 @@ platform shape (CRDs, controller, firewall, ACA wiring) see
 
 ## 1. The 30-second mental model
 
-OpenSandbox is a Kubernetes-native, Kata-isolated code execution runtime. You
+OpenBox is a Kubernetes-native, Kata-isolated code execution runtime on Azure. You
 call `Sandbox.create()` in Python, get a fresh VM-isolated pod with its own
 kernel, run shell commands against it, read the output, and let the SDK tear it
 down. The lifecycle (when to create, when to kill, what to run) is your
@@ -23,7 +23,7 @@ The call path on a laptop today:
 
 ```
 +-------------------+         +------------------------+         +------------------------+
-| your application  | HTTP    | opensandbox-server     |  K8s    | opensandbox-controller |
+| your application  | HTTP    | sandbox server         |  K8s    | sandbox controller     |
 | (Python SDK)      |  -----> | (FastAPI, in cluster)  | ------> | (Go, reconciles CRDs)  |
 | Sandbox.create()  |   :18080|                        |         |                        |
 +-------------------+         +------------------------+         +-----------+------------+
@@ -56,8 +56,9 @@ Why this exists at our company, and not "just a Docker container" or "just ACI":
   warm-pool, no controller-driven readiness, no `kubectl get batchsandbox -A`,
   and no Kata. You'd be on your own for lifecycle, audit, and network egress
   control.
-- **The runtime is what upstream Alibaba ships.** We run their controller,
-  server, and `execd` unchanged, on top of an Azure landing zone (firewall,
+- **The runtime is a vendored third-party project.** We run its controller,
+  server, and `execd` unchanged (see [`THIRD_PARTY_LICENSES.md`](../THIRD_PARTY_LICENSES.md)),
+  on top of an Azure landing zone (firewall,
   ACR Premium PE, Event Hubs audit, Workload Identity, ACA control plane).
 
 ---

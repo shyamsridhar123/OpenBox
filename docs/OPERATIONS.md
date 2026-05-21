@@ -1,6 +1,6 @@
 # Operations
 
-Day-2 runbook index for OpenSandbox on Azure. The per-slice runbooks under
+Day-2 runbook index for OpenBox on Azure. The per-slice runbooks under
 [`evidence/runs/finish/`](../evidence/runs/finish/) are the source of truth for each component —
 this document is the entry point.
 
