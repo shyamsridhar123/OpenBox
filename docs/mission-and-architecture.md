@@ -32,7 +32,7 @@ A working agent-callable sandbox service in **East US 2** supporting **~500 conc
 - per-user **Entra-authenticated REST API**
 - **Python / JS / Go SDKs**
 - **signed curated base images**
-- **read-only observability portal**
+- **read-only observability portal** *(planned — design tracks [OSEP-0006](../third_party/opensandbox/oseps/0006-developer-console.md); not yet implemented. See §3.1 note.)*
 - **Notation/Ratify signature enforcement**
 - **Azure Policy in Deny mode**
 
@@ -95,9 +95,9 @@ Dropped because they're Windows-bound and we are Linux-only: Intune enrollment, 
 
 | Component | Azure resource | Notes |
 |---|---|---|
-| FastAPI control plane | ACA revision | Auto-scaling via KEDA HTTP scaler; `minReplicas: 1` (cold-start SLA) |
-| Portal frontend (React/Blazor) | ACA revision | ACA Easy Auth (Entra SSO) |
-| Portal API | ACA revision | Reads Log Analytics + AKS API |
+| FastAPI control plane | ACA revision | Auto-scaling via KEDA HTTP scaler; `minReplicas: 1` (cold-start SLA). Implemented (`apps/control-plane/`). |
+| Portal frontend (React/Blazor) | ACA revision | ACA Easy Auth (Entra SSO). **Scaffold only** — ACA revision `ca-portalfe-opensandbox-dev` provisioned and running `mcr.microsoft.com/azuredocs/containerapps-helloworld:latest` placeholder. No source in `apps/portal-frontend/src/`. Design tracks [OSEP-0006](../third_party/opensandbox/oseps/0006-developer-console.md). |
+| Portal API | ACA revision | Reads Log Analytics + AKS API. **Scaffold only** — ACA revision `ca-portalapi-opensandbox-dev` provisioned; no source in `apps/portal-api/app/`. |
 | OpenSandbox K8s controller | AKS Deployment in `opensandbox-system` ns | RBAC scoped (NOT cluster-admin) — vendored runtime, see [`THIRD_PARTY_LICENSES.md`](../THIRD_PARTY_LICENSES.md) |
 | Execution daemon | AKS DaemonSet on Kata nodes | Runs as `runc`, not Kata |
 | Sandbox pods | AKS Pod, `runtimeClassName: kata-vm-isolation` | Per-user namespace `ns-<user-oid>` |

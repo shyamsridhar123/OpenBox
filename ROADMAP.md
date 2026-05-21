@@ -13,6 +13,7 @@ Updated 2026-05-20.
 | Phase 3 | End-to-end laptop SDK demo: `Sandbox.create` → Kata pod → command exec → result. Driver in `examples/sdk_e2e.py`. |
 | Phase 3 | LLM-driven agentic demo through the sandbox SDK — Kimi K2.5 is the worked example; the path generalises to any LLM. Driver in `examples/kimi_via_osb.py`. |
 | Phase 3 | In-cluster Workload Identity variant of the agentic demo. |
+| Phase 3 | Hypothesis Swarm demo: Kimi → N diverse patches → N Kata sandboxes race in parallel → first green test wins. Driver in `examples/hypothesis_swarm.py`; presenter script in `docs/DEMO-HYPOTHESIS-SWARM.md`. Last measured N=20: 14.16× speedup vs serial on same substrate. |
 | Firewall | Azure Firewall Premium + policy + UDR for Kata egress. |
 | ACR PE | ACR Premium private endpoint, public access disabled, DNS linked. |
 | ACNS | Cilium ACNS, Hubble UI, L7 FQDN policies on Kata pods. |
@@ -22,7 +23,8 @@ Updated 2026-05-20.
 
 | Slice | Description | Status |
 |---|---|---|
-| ACA control plane | ACA environment + control-plane container apps (FastAPI control plane, portal API, portal frontend) | Partial — `acaenv-opensandbox-dev` and three apps deployed in `snet-aca`; wiring to AKS via OBO/private ingress under active development. |
+| ACA control plane | ACA environment + control-plane container apps (FastAPI control plane, portal API, portal frontend) | Partial — `acaenv-opensandbox-dev` and three apps deployed in `snet-aca`. `apps/control-plane/` has FastAPI source; `apps/portal-api/` and `apps/portal-frontend/` are empty scaffolds (the ACA revisions currently serve `mcr.microsoft.com/azuredocs/containerapps-helloworld:latest`). Wiring to AKS via OBO/private ingress under active development. |
+| Portal console | Web UI for sandbox lifecycle operations (list/create/renew/delete/filter) with server-side RBAC. | Design only — tracks upstream OSEP-0006 (`third_party/opensandbox/oseps/0006-developer-console.md`, status `implementable`). Upstream has not implemented either; DarkForge would be the first deployment to ship it. No code in this repo or upstream. |
 | Audit DS | Fluent Bit DaemonSet on AKS shipping `execd` logs to Event Hubs | Being deployed by a parallel workstream; pipeline already validated end-to-end with a synthetic producer. |
 
 ## Deferred

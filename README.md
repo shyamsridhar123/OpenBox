@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/DarkForge.png" alt="DarkForge logo" width="280" />
+</p>
+
 # DarkForge
 
 **The execution substrate for distributed AI engineering on Azure. One engineer, a fleet of
@@ -187,9 +191,9 @@ python examples/kimi_via_osb.py
 | [`third_party/opensandbox/`](third_party/opensandbox/) | Third-party sandbox runtime, vendored. Do not edit; sync via the upstream-sync workflow. |
 | [`infra/bicep/`](infra/bicep/) | Subscription-scope Bicep for the Azure landing zone (cluster, ACR, firewall, audit). |
 | [`infra/helm/opensandbox/`](infra/helm/opensandbox/) | Helm chart deploying the sandbox runtime images (controller, server, execd) with Azure-specific values. |
-| [`apps/`](apps/) | Control-plane services on ACA (FastAPI, portal). |
+| [`apps/`](apps/) | Control-plane services on ACA. `apps/control-plane/` is implemented (FastAPI). `apps/portal-api/` and `apps/portal-frontend/` are scaffolds — ACA revisions provisioned, no source yet. See [ROADMAP.md](ROADMAP.md) and OSEP-0006 (`third_party/opensandbox/oseps/0006-developer-console.md`). |
 | [`sdks/`](sdks/) | Azure-flavored SDK wrappers and examples. |
-| [`examples/`](examples/) | Runnable demos: laptop SDK, Kimi agentic app. |
+| [`examples/`](examples/) | Runnable demos: laptop SDK, Kimi agentic app, hypothesis swarm. See [`docs/DEMO-HYPOTHESIS-SWARM.md`](docs/DEMO-HYPOTHESIS-SWARM.md). |
 | [`docs/`](docs/) | This documentation set. |
 | [`runbooks/`](runbooks/) | Ops runbooks: incident response, onboarding, CVE response, DR drill. |
 

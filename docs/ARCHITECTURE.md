@@ -116,7 +116,7 @@ The eleven components from the operator's mental model:
 3. Sandbox control plane (controller, server, `execd`) — vendored runtime
 4. ACR Premium `acropensandboxdemo7075` + private endpoint
 5. Azure Firewall Premium `afw-opensandbox-dev` + UDR
-6. Cilium dataplane + ACNS (Hubble UI, L7 FQDN policies)
+6. Cilium dataplane + ACNS (Hubble UI for network observability, L7 FQDN policies). Note: Hubble UI is Cilium's network flow viewer — it is *not* a sandbox fleet console. A user-facing console for sandbox lifecycle (list/create/delete) is design-only, tracking upstream OSEP-0006.
 7. Event Hubs `evhns-opensandbox-dev` + Stream Analytics + blob output
 8. ACA environment `acaenv-opensandbox-dev` (FINISH-7 in progress)
 9. Foundry `aihubeastus26267492086` with Kimi-K2.5 / K2.6
