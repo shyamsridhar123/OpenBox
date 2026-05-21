@@ -43,10 +43,9 @@ they're hard to get *together* — which is the gap this repo fills:
    pipeline sees it drop.
 
 4. **Reproducible, evidence-bearing IaC.** Bicep for the landing zone, Helm for the
-   runtime, runbooks per slice, and `evidence/runs/finish/` carrying the literal stdout
-   of every end-to-end verification. The whole thing should rebuild from a fresh
-   subscription with `az deployment sub create` plus a Helm install — no clicks, no
-   tribal knowledge.
+   runtime, and run logs carrying the literal stdout of every end-to-end verification.
+   The whole thing should rebuild from a fresh subscription with `az deployment sub
+   create` plus a Helm install — no clicks, no tribal knowledge.
 
 ### The 100× thesis, concretely
 
@@ -73,7 +72,7 @@ twice.
 ## What's actually running right now
 
 Resource groups `rg-opensandbox-dev` (cluster + control plane) and `rg-opensandbox-demo` (ACR),
-both in `eastus2`. Verified end-to-end by the runs under [`evidence/runs/finish/`](evidence/runs/finish/).
+both in `eastus2`.
 
 | Layer | Resource | Notes |
 |---|---|---|
@@ -84,15 +83,14 @@ both in `eastus2`. Verified end-to-end by the runs under [`evidence/runs/finish/
 | Egress firewall | `afw-opensandbox-dev` (Azure Firewall Premium) | Private IP 10.10.10.4, policy `afwp-opensandbox-dev`, two rule collection groups (`rcg-aks-bootstrap` p100, `rcg-sandbox-egress` p200), deny-all at p300 |
 | Sandbox UDR | `rt-snet-kata-dev` | Forces 0.0.0.0/0 from `snet-kata` to the firewall |
 | Audit pipeline | Event Hubs `evhns-opensandbox-dev` (LocalAuthDisabled) → Stream Analytics `asa-opensandbox-audit-dev` → blob `stasadevse3bwihj3in4s/audit-fast` | Event hub `sandbox-audit-fast`, 4 partitions; ASA uses system-assigned MI with EH Data Receiver + Storage Blob Data Contributor |
-| Control plane (ACA) | `acaenv-opensandbox-dev` in snet-aca | 3 container apps; wiring in progress under FINISH-7 |
+| Control plane (ACA) | `acaenv-opensandbox-dev` in snet-aca | 3 container apps |
 | Foundry | `aihubeastus26267492086` | Kimi-K2.5 + Kimi-K2.6 deployments |
 | Workload identity | `id-kimi-demo-dev` | Federated to the `demo` namespace's service account |
 | Key Vault | `kv-opensandbox-dev` | Private endpoint `pe-kv-opensandbox-dev` |
 
 ## Architecture at a glance
 
-Two paths are demonstrated in `evidence/runs/finish/`. Both bottom out in the same controller +
-Kata sandbox pod.
+Two call paths, both bottoming out in the same controller + Kata sandbox pod.
 
 ```
 Path A — Laptop SDK (sdk_e2e.py)
@@ -143,7 +141,7 @@ Path B — Kimi agentic app (kimi_via_osb.py)
                               python3 /tmp/kimi_code.py inside the sandbox
                                        |
                                        v
-                              SUM=88   (PASS, see kimi-via-osb.log)
+                                    result returned to the agent
 ```
 
 A deeper diagram with all eleven components, the VNet/subnet table, identity flow, and the egress
@@ -180,21 +178,17 @@ python evidence/runs/finish/kimi_via_osb.py
 #     Expected last line: verdict     = PASS
 ```
 
-The recorded runs for both scripts (raw stdout, sandbox IDs, the Kimi prompt and response) are
-checked in under [`evidence/runs/finish/`](evidence/runs/finish/) — `sdk_e2e.log`,
-`kimi-via-osb.log`, and `kimi-demo-success.log` for the in-cluster Workload Identity variant.
-
 ## Repository layout
 
 | Path | Purpose |
 |---|---|
 | [`third_party/opensandbox/`](third_party/opensandbox/) | Third-party sandbox runtime, vendored. Do not edit; sync via the upstream-sync workflow. |
-| [`infra/bicep/`](infra/bicep/) | Subscription-scope Bicep for the Azure landing zone (cluster, ACR, firewall, audit). Owned by infra workstream. |
+| [`infra/bicep/`](infra/bicep/) | Subscription-scope Bicep for the Azure landing zone (cluster, ACR, firewall, audit). |
 | [`infra/helm/opensandbox/`](infra/helm/opensandbox/) | Helm chart deploying the sandbox runtime images (controller, server, execd) with Azure-specific values. |
-| [`apps/`](apps/) | Forthcoming control-plane services on ACA (FastAPI, portal). FINISH-7 work in progress. |
+| [`apps/`](apps/) | Control-plane services on ACA (FastAPI, portal). |
 | [`sdks/`](sdks/) | Azure-flavored SDK wrappers and examples. |
 | [`docs/`](docs/) | This documentation set. |
-| [`evidence/runs/finish/`](evidence/runs/finish/) | E2E proof artefacts (logs, manifests, runbooks per FINISH slice). |
+| [`evidence/`](evidence/) | End-to-end run logs and screenshots from the verification of each capability. |
 | [`runbooks/`](runbooks/) | Ops runbooks: incident response, onboarding, CVE response, DR drill. |
 
 ## Documentation
