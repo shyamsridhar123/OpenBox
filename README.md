@@ -162,8 +162,8 @@ These steps assume an operator with cluster-admin (or equivalent kubelogin) acce
 az login
 az aks get-credentials -g rg-opensandbox-dev -n aks-opensandbox-dev --overwrite-existing
 
-# 1. Install the sandbox Python SDK from the vendored tree
-pip install -e third_party/opensandbox/sdks/python
+# 1. Install the sandbox Python SDK
+pip install opensandbox
 
 # 2. Port-forward the sandbox server to localhost:18080
 kubectl -n opensandbox-system port-forward svc/opensandbox-server 18080:8080 &
