@@ -1,17 +1,15 @@
-"""FINISH-1: Kimi K2.5 agentic application running through the REAL upstream
-Alibaba OpenSandbox SDK — replacing the earlier raw-Kata-pod demo.
+"""Kimi K2.5 agentic application running through the sandbox SDK.
 
 Flow:
     Kimi (Azure Foundry, model deployment Kimi-K2.5/K2.6)
       -> generates Python code in <code>...</code> tags
       -> we extract + strip fences
-      -> hand the code to a fresh OpenSandbox sandbox via the SDK
+      -> hand the code to a fresh sandbox via the SDK
       -> sandbox.commands.run(python3 -c <generated>)
       -> we read back stdout/exit_code via the same SDK call
 
-This is the original-brief deliverable: 'run a Kimi K2.5 agentic
-application end-to-end' — through the sandbox runtime we built, not
-through a bare pod.
+End-to-end demo of a Kimi K2.5 agentic application running through the
+sandbox runtime, not a bare pod.
 """
 from __future__ import annotations
 

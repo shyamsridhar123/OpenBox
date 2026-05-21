@@ -1,5 +1,0 @@
-{
-  "name": "pe-acr-opensandbox-dev",
-  "state": "Succeeded",
-  "subnet": "/subscriptions/b914f690-dab0-4208-98af-c7ee89ab9040/resourceGroups/rg-opensandbox-dev/providers/Microsoft.Network/virtualNetworks/vnet-opensandbox-dev/subnets/snet-pe"
-}

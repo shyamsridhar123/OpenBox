@@ -1,2 +1,0 @@
-NAME                                     READY   STATUS    RESTARTS   AGE   IP          NODE                                NOMINATED NODE   READINESS GATES
-f14b86bd-924d-403e-b4ec-90954ae23fa4-0   1/1     Running   0          22s   10.10.1.4   aks-nodepool1-13814532-vmss000000   <none>           <none>

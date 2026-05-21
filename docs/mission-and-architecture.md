@@ -267,7 +267,7 @@ The goal is satisfied when **all five** of these hold:
 1. All 3 commits pushed to `origin/main`. ✅ DONE (`20c7e31..ef4a318 main -> main`).
 2. All 5 Phase-2 critical QA issues resolved (workflows parse; Go SDK builds; `test_sessions_router.py` passes). 🔄 IN FLIGHT.
 3. `az deployment sub create` returns **Succeeded**, OR a documented STOP with explicit blocker. 🔄 IN FLIGHT.
-4. The Kimi K2.5 agent demo runs end-to-end against the deployed stack and writes evidence to `evidence/runs/`, OR a documented STOP with explicit blocker. ⏸ STAGED (driver scripts ready in `scripts/phase4/`).
+4. The Kimi K2.5 agent demo runs end-to-end against the deployed stack, OR a documented STOP with explicit blocker. ⏸ STAGED (driver scripts ready in `scripts/phase4/`).
 5. `docs/acceptance-checklist.md` reflects current PASS / FAIL / DEFERRED for all 34 ACs. ⏸ PENDING.
 
 Until those five flip to ✅, this build is not done. The Stop hook is enforcing exactly that.

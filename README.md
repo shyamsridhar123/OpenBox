@@ -1,9 +1,10 @@
 # OpenBox on Azure
 
 A working Azure deployment of a Kubernetes-native, Kata-isolated sandbox runtime for executing
-untrusted or AI-generated code. The stack is wired end-to-end: a developer SDK on a laptop, or a
-Kimi K2.5/K2.6 model deployment in Microsoft Foundry, can call `Sandbox.create`, get back a
-running Kata-isolated pod, execute code, and read results.
+untrusted or AI-generated code. The stack is wired end-to-end: any LLM agent or developer SDK
+can call `Sandbox.create`, get back a running Kata-isolated pod, execute code, and read
+results. Kimi K2.5 in Microsoft Foundry is one worked example; the path generalises to GPT,
+Claude, or any other model the platform team chooses to wire in.
 
 Everything in this repo describes the Azure landing zone — the AKS cluster, Kata node pool,
 ACR Premium with private endpoint, Azure Firewall egress, Event Hubs/Stream Analytics audit
@@ -42,12 +43,11 @@ they're hard to get *together* — which is the gap this repo fills:
    images at admission. Anything not explicitly permitted is dropped — and the audit
    pipeline sees it drop.
 
-4. **Reproducible, evidence-bearing IaC.** Bicep for the landing zone, Helm for the
-   runtime, and run logs carrying the literal stdout of every end-to-end verification.
-   The whole thing should rebuild from a fresh subscription with `az deployment sub
-   create` plus a Helm install — no clicks, no tribal knowledge.
+4. **Reproducible IaC.** Bicep for the landing zone, Helm for the runtime. The whole
+   thing should rebuild from a fresh subscription with `az deployment sub create` plus a
+   Helm install — no clicks, no tribal knowledge.
 
-### The 100× thesis, concretely
+### The 100× thesis
 
 A single engineer driving a fleet of these sandboxes can:
 
@@ -163,19 +163,16 @@ pip install -e third_party/opensandbox/sdks/python
 # 2. Port-forward the sandbox server to localhost:18080
 kubectl -n opensandbox-system port-forward svc/opensandbox-server 18080:8080 &
 
-# 3. Drop the server API key next to the demo script
-#    (read once from the running deployment — see runbooks for rotation)
+# 3. Drop the server API key into examples/ for the demo scripts to read
 kubectl -n opensandbox-system get secret opensandbox-server -o jsonpath='{.data.OPENSANDBOX_SERVER_API_KEY}' \
-  | base64 -d > evidence/runs/finish/.opensandbox-api-key
+  | base64 -d > examples/.opensandbox-api-key
 
 # 4a. Run the laptop SDK demo
-python evidence/runs/finish/sdk_e2e.py
-#     Expected last line: RUN-4 SUCCESS
+python examples/sdk_e2e.py
 
 # 4b. Run the Kimi agentic demo
 #     (requires az login with access to aihubeastus26267492086)
-python evidence/runs/finish/kimi_via_osb.py
-#     Expected last line: verdict     = PASS
+python examples/kimi_via_osb.py
 ```
 
 ## Repository layout
@@ -187,8 +184,8 @@ python evidence/runs/finish/kimi_via_osb.py
 | [`infra/helm/opensandbox/`](infra/helm/opensandbox/) | Helm chart deploying the sandbox runtime images (controller, server, execd) with Azure-specific values. |
 | [`apps/`](apps/) | Control-plane services on ACA (FastAPI, portal). |
 | [`sdks/`](sdks/) | Azure-flavored SDK wrappers and examples. |
+| [`examples/`](examples/) | Runnable demos: laptop SDK, Kimi agentic app. |
 | [`docs/`](docs/) | This documentation set. |
-| [`evidence/`](evidence/) | End-to-end run logs and screenshots from the verification of each capability. |
 | [`runbooks/`](runbooks/) | Ops runbooks: incident response, onboarding, CVE response, DR drill. |
 
 ## Documentation
@@ -212,8 +209,8 @@ There are exactly two delta points against `third_party/opensandbox/`:
 
 ## Acknowledgement and licenses
 
-This wrapper — the Azure landing zone, IaC, docs, SDK wrappers, and evidence under this
-repo — is licensed under the MIT [`LICENSE`](LICENSE).
+This wrapper — the Azure landing zone, IaC, docs, and SDK wrappers under this repo — is
+licensed under the MIT [`LICENSE`](LICENSE).
 
 The sandbox runtime under [`third_party/opensandbox/`](third_party/opensandbox/) is the
 upstream [alibaba/OpenSandbox](https://github.com/alibaba/OpenSandbox) project (Apache

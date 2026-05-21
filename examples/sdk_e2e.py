@@ -1,12 +1,12 @@
-"""RUN-4 SDK E2E — drives the real upstream opensandbox SDK against the
-in-cluster opensandbox-server reachable on localhost:18080 via kubectl
-port-forward. Creates a Kata-isolated sandbox, runs commands, prints results.
+"""SDK end-to-end — drives the sandbox Python SDK against the in-cluster
+sandbox server reachable on localhost:18080 via kubectl port-forward.
+Creates a Kata-isolated sandbox, runs commands, prints results.
 
 Success = a sandbox pod reaches Running, executes our shell command, and
 returns stdout via the SDK transport. This validates the end-to-end stack:
-  SDK → server (FastAPI) → BatchSandbox CRD → controller → Kata pod →
-  execd init container (now CRLF-clean v1.0.8) → bootstrap.sh → execd daemon
-  → command exec → response back through the chain.
+  SDK -> server (FastAPI) -> BatchSandbox CRD -> controller -> Kata pod ->
+  execd init container (CRLF-clean v1.0.8) -> bootstrap.sh -> execd daemon
+  -> command exec -> response back through the chain.
 """
 from __future__ import annotations
 

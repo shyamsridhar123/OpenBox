@@ -1,21 +1,9 @@
 # Operations
 
-Day-2 runbook index for OpenBox on Azure. The per-slice runbooks under
-[`evidence/runs/finish/`](../evidence/runs/finish/) are the source of truth for each component —
-this document is the entry point.
-
-## Runbook index
-
-| Slice | Topic | Runbook |
-|---|---|---|
-| FINISH-4 | Azure Firewall Premium policy + UDR for Kata egress | [evidence/runs/finish/FINISH-4-fw-runbook.md](../evidence/runs/finish/FINISH-4-fw-runbook.md) |
-| FINISH-5 | ACR Premium private endpoint + DNS | [evidence/runs/finish/FINISH-5-acr-pe-runbook.md](../evidence/runs/finish/FINISH-5-acr-pe-runbook.md) |
-| FINISH-6 | Cilium ACNS, Hubble UI, L7 FQDN policies | [evidence/runs/finish/FINISH-6-acns-runbook.md](../evidence/runs/finish/FINISH-6-acns-runbook.md) |
-| FINISH-7 | ACA environment + control-plane container apps | [evidence/runs/finish/FINISH-7-aca-runbook.md](../evidence/runs/finish/FINISH-7-aca-runbook.md) (in progress) |
-| FINISH-8 | Event Hubs + Stream Analytics audit pipeline | [evidence/runs/finish/FINISH-8-audit-runbook.md](../evidence/runs/finish/FINISH-8-audit-runbook.md) |
-
-Older general runbooks (incident response, onboarding, CVE response, DR drill) live in
-[`runbooks/`](../runbooks/).
+Day-2 runbook for OpenBox on Azure. Cluster health checklist, sandbox image
+onboarding, API-key rotation, and execd rebuild walkthrough live here.
+Generic incident-response, onboarding, CVE-response, and DR-drill runbooks
+live under [`runbooks/`](../runbooks/).
 
 ## 60-second cluster health checklist
 
@@ -55,11 +43,8 @@ az stream-analytics job show -g rg-opensandbox-dev -n asa-opensandbox-audit-dev 
 # Expected: Running
 
 # 8. Smoke a sandbox
-python evidence/runs/finish/sdk_e2e.py
-# Expected last line: RUN-4 SUCCESS
+python examples/sdk_e2e.py
 ```
-
-If any step fails, drop into the corresponding FINISH-* runbook above.
 
 ## How to add a new sandbox image
 
@@ -108,7 +93,7 @@ error — usually a typo in the allow-list entry.
 
 The server's API key gates every request that comes in from outside the cluster (laptop SDK
 calls, ACA calls, anything). It lives in two places that must stay in sync: the Helm secret on
-the cluster, and the operator's local copy at `evidence/runs/finish/.opensandbox-api-key` (and
+the cluster, and the operator's local copy at `examples/.opensandbox-api-key` (and
 analogous places for any other clients).
 
 ```bash
@@ -131,10 +116,10 @@ kubectl -n opensandbox-system rollout restart deploy/opensandbox-server
 kubectl -n opensandbox-system rollout status deploy/opensandbox-server
 
 # 5. Refresh local copies for the demo scripts
-echo "$NEW_KEY" > evidence/runs/finish/.opensandbox-api-key
+echo "$NEW_KEY" > examples/.opensandbox-api-key
 
 # 6. Smoke
-python evidence/runs/finish/sdk_e2e.py
+python examples/sdk_e2e.py
 ```
 
 The Stream Analytics job and Fluent Bit DaemonSet do NOT use this key (they authenticate to
@@ -172,7 +157,7 @@ helm upgrade opensandbox infra/helm/opensandbox \
 
 # 4. Existing sandbox pods are NOT rolled (they belong to the controller, not Helm).
 #    Create a fresh sandbox to verify the new execd is the one being injected.
-python evidence/runs/finish/sdk_e2e.py
+python examples/sdk_e2e.py
 
 # 5. Confirm the running pod is on the new tag
 kubectl -n <sandbox-ns> describe pod <sandbox-pod> | grep -i image:

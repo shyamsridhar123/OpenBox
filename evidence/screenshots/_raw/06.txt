@@ -1,4 +1,0 @@
-    type = "kubernetes"
-    execd_image = "acropensandboxdemo7075.azurecr.io/opensandbox/execd:v1.0.8"
-
-    [kubernetes]

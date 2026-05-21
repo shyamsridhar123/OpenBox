@@ -1,3 +1,0 @@
-Role                     Scope
------------------------  ------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Cognitive Services User  /subscriptions/b914f690-dab0-4208-98af-c7ee89ab9040/resourceGroups/DefaultResourceGroup-EUS2/providers/Microsoft.CognitiveServices/accounts/aihubeastus26267492086

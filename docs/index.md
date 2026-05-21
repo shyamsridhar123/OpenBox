@@ -16,13 +16,11 @@ Top-level entry point for the OpenBox-on-Azure documentation.
 
 - [acceptance-checklist.md](acceptance-checklist.md) — the 34 acceptance criteria for v1.
 - [mission-and-architecture.md](mission-and-architecture.md) — original design narrative.
-- [DOC-REFRESH-LOG.md](DOC-REFRESH-LOG.md) — changelog for the most recent doc refresh.
 
-## Evidence and per-slice runbooks
+## Demos and runbooks
 
-- [evidence/runs/finish/](../evidence/runs/finish/) — recorded E2E runs (`sdk_e2e.log`,
-  `kimi-via-osb.log`, `kimi-demo-success.log`) and per-FINISH-slice runbooks.
-- [runbooks/](../runbooks/) — generic ops runbooks (IR, onboarding, CVE response, DR drill).
+- [examples/](../examples/) — runnable demo scripts (laptop SDK, Kimi agentic app).
+- [runbooks/](../runbooks/) — ops runbooks (IR, onboarding, CVE response, DR drill).
 
 ## Vendored runtime
 

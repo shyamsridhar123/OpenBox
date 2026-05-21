@@ -185,10 +185,9 @@ laptop SDK flow currently uses a plain API key stored in `kv-opensandbox-dev`.
                               same cluster path
 ```
 
-Federated credential definition lives in
-[`evidence/runs/finish/wi-federated-credential.json`](../evidence/runs/finish/wi-federated-credential.json);
-the matching role assignment is in
-[`evidence/runs/finish/wi-role-assignment.txt`](../evidence/runs/finish/wi-role-assignment.txt).
+Federated credential definition: an Entra federated identity credential tied to the
+cluster's OIDC issuer, with subject `system:serviceaccount:demo:kimi-demo`. The matching
+Azure role assignment grants the UAMI `Cognitive Services User` on the Foundry resource.
 
 ## Egress flow for a sandbox pod
 
@@ -265,7 +264,7 @@ TLS handshake error — re-check the private DNS zone linkage first.
 | Failure | What it looks like | How we recover |
 |---|---|---|
 | `bootstrap.sh` has CRLF line endings | Sandbox pod restarts in a tight loop; `kubectl logs <pod> -c execd-init` shows `bash: bootstrap.sh: cannot execute: required file not found` even though the file is present | `.gitattributes` enforces LF on `*.sh`; re-build the execd image (`infra/helm/opensandbox/...`). The teaching story is below. |
-| Firewall in `Failed` provisioning state | `az network firewall show ... --query provisioningState` returns `Failed`; sandbox pods can't pull from pypi | Patch the policy with `az network firewall policy update --idle-timeout 60`, then `az network firewall show ... --query 'sku'` to confirm Premium SKU intact. Trace in [`evidence/runs/finish/fw-failure-trace.md`](../evidence/runs/finish/fw-failure-trace.md). |
+| Firewall in `Failed` provisioning state | `az network firewall show ... --query provisioningState` returns `Failed`; sandbox pods can't pull from pypi | Patch the policy with `az network firewall policy update --idle-timeout 60`, then `az network firewall show ... --query 'sku'` to confirm Premium SKU intact. |
 | ACR private endpoint DNS drift | `kubectl describe pod` shows `failed to resolve reference ... acropensandboxdemo7075.azurecr.io: no such host` | Verify `privatelink.azurecr.io` is linked to `vnet-opensandbox-dev`; flush kubelet DNS cache by restarting the node pool one node at a time. |
 | Stream Analytics job stops on storage 401 | ASA shows `Stopped` with `Authorization` errors in diagnostic logs | Re-assert `Storage Blob Data Contributor` on the ASA system-assigned MI; restart the job. |
 | Cluster autoscaler stuck on Kata pool | Pods Pending with `0/3 nodes are available: 3 node(s) didn't match node selector` | `az aks nodepool update -g rg-opensandbox-dev --cluster-name aks-opensandbox-dev -n kata --update-cluster-autoscaler --min-count 1 --max-count 4` (current state, may drift) |

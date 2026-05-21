@@ -1,2 +1,0 @@
-Defaulted container "sandbox" out of: sandbox, execd-installer (init)
-Linux f14b86bd-924d-403e-b4ec-90954ae23fa4-0 6.6.130.1-3.azl3 #1 SMP PREEMPT_DYNAMIC Wed Apr  1 04:34:46 UTC 2026 x86_64 GNU/Linux

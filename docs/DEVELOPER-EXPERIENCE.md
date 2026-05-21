@@ -65,7 +65,7 @@ Why this exists at our company, and not "just a Docker container" or "just ACI":
 
 ## 2. Getting started
 
-You will reproduce [`evidence/runs/finish/sdk_e2e.py`](../evidence/runs/finish/sdk_e2e.py)
+You will reproduce [`examples/sdk_e2e.py`](../examples/sdk_e2e.py)
 end-to-end. That script is the canonical "first sandbox" example.
 
 ### 2.1 Prereqs
@@ -105,8 +105,7 @@ kubectl -n opensandbox get secret opensandbox-server-api-key \
 ```
 
 Store that file alongside your script and never commit it. The companion
-scripts under `evidence/runs/finish/` read `.opensandbox-api-key` next to
-themselves.
+scripts under `examples/` read `.opensandbox-api-key` next to themselves.
 
 ### 2.4 Install the SDK
 
@@ -148,7 +147,7 @@ an `https://...` URL — see section 11.)
 
 ### 2.6 Run your first sandbox
 
-The whole script, lifted from `evidence/runs/finish/sdk_e2e.py`:
+The whole script, lifted from `examples/sdk_e2e.py`:
 
 ```python
 import asyncio
@@ -508,9 +507,9 @@ just needs another language toolchain:
 
 ## 6. Agentic application patterns
 
-This is the section to read if you're plugging the sandbox into an LLM. The
-reference implementation is
-[`evidence/runs/finish/kimi_via_osb.py`](../evidence/runs/finish/kimi_via_osb.py)
+This is the section to read if you're plugging the sandbox into an LLM. One example
+implementation is
+[`examples/kimi_via_osb.py`](../examples/kimi_via_osb.py)
 — Kimi-K2.5/K2.6 in Microsoft Foundry, generating Python code, executed in a
 fresh Kata sandbox. The same shape works for GPT-4o, Claude Sonnet, or any
 chat model.
@@ -596,10 +595,9 @@ K2.5 is the primary, K2.6 is the fallback. Both are deployed on
 - **From a laptop:** `az login` once, then
   `az account get-access-token --resource https://cognitiveservices.azure.com`.
   Cache it; tokens are good for ~an hour.
-- **In-cluster:** Workload Identity. The federated credential
-  `id-kimi-demo-dev` is bound to the `demo` namespace's service account
-  (see `evidence/runs/finish/wi-federated-credential.json` and
-  `wi-role-assignment.txt`). Pods that mount that SA get a token-file at
+- **In-cluster:** Workload Identity. A federated credential
+  (e.g. `id-kimi-demo-dev` for the in-cluster Kimi example) is bound to the target
+  namespace's service account. Pods that mount that SA get a token-file at
   `/var/run/secrets/azure/tokens/azure-identity-token` and trade it via MSAL.
 
 ### 6.6 Cost awareness
@@ -679,8 +677,7 @@ the platform repo with:
 - Expected traffic volume.
 
 The platform team will add a rule to `rcg-sandbox-egress` and confirm via
-firewall log query. The runbook is at
-[`evidence/runs/finish/FINISH-4-fw-runbook.md`](../evidence/runs/finish/FINISH-4-fw-runbook.md).
+firewall log query.
 
 ### 8.2 The Kata boundary
 
@@ -732,7 +729,7 @@ secrets. Two patterns:
 If your app runs in the same AKS cluster (e.g. the Kimi demo pod), you don't
 need an `az` login or a stored client secret. The federated credential
 `id-kimi-demo-dev` is wired to the `demo/<sa-name>` service account, with
-role assignments listed in `evidence/runs/finish/wi-role-assignment.txt`.
+the necessary role assignments on the target Foundry resource.
 Your pod gets a projected token file, exchanges it for an AAD token, and
 calls Foundry. The same SDK code as the laptop demo works — only the AAD
 token source changes.
@@ -768,10 +765,9 @@ What that gives you in practice:
   granularity for incident review.
 - **Sandbox create/destroy** events are emitted by the controller and flow
   through the same pipeline.
-- **Network audit** is Cilium/Hubble; see
-  [`evidence/runs/finish/FINISH-6-acns-runbook.md`](../evidence/runs/finish/FINISH-6-acns-runbook.md).
+- **Network audit** is Cilium/Hubble.
 - **App Insights**: ACA-hosted services will publish their own metrics and
-  traces once FINISH-7 is done. The connection string is wired via Container
+  traces once their wiring is complete. The connection string is wired via Container
   Apps managed env vars.
 
 For development debugging, the fastest path is:
@@ -826,7 +822,7 @@ kubectl logs -n <ns> <sandbox-pod> -c execd
 | Error | Cause | Fix |
 |---|---|---|
 | `KUBERNETES::POD_READY_TIMEOUT` | Kata cold start exceeded `ready_timeout`. | Pass `ready_timeout=timedelta(minutes=3)`. If recurring, scale the Kata nodepool or add warm pool. |
-| `KUBERNETES::INITIALIZATION_ERROR` | Server cannot reach the AKS API (typical on the ACA path before private DNS is wired). | Confirm the ACA-side kubeconfig points at the private cluster FQDN and that the ACA vnet has the private DNS zone linked. See `evidence/runs/finish/FINISH-7-aca-runbook.md`. |
+| `KUBERNETES::INITIALIZATION_ERROR` | Server cannot reach the AKS API (typical on the ACA path before private DNS is wired). | Confirm the ACA-side kubeconfig points at the private cluster FQDN and that the ACA vnet has the private DNS zone linked. |
 | `exec /opt/opensandbox/bin/bootstrap.sh: no such file or directory` | CRLF line endings in `bootstrap.sh` — the kernel rejects the shebang. | Already fixed in the `v1.0.8` sandbox image we ship. If you build a custom image, set `core.autocrlf=false` and confirm `file bootstrap.sh` reports `ASCII text` not `with CRLF line terminators`. |
 | HTTP `504` from `Sandbox.create` | Server's wait-for-pod-Ready timed out, usually nodepool capacity. | `kubectl get pods -A -l opensandbox.io/role=sandbox` to see the queue; scale the Kata pool. |
 | HTTP `429` from Kimi/Foundry | Deployment-level throttle. | Exponential backoff + fall back to the secondary deployment (`Kimi-K2.5 → Kimi-K2.6`). See `kimi_via_osb.py`. |
@@ -1023,11 +1019,5 @@ guardrails, and failure modes around that one pattern.
 - [`README.md`](../README.md) — what's actually deployed.
 - [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) — the platform's internal shape.
 - [`docs/OPERATIONS.md`](OPERATIONS.md) — day-2 runbooks and rotation.
-- [`evidence/runs/finish/sdk_e2e.py`](../evidence/runs/finish/sdk_e2e.py) —
-  canonical first-sandbox script.
-- [`evidence/runs/finish/kimi_via_osb.py`](../evidence/runs/finish/kimi_via_osb.py) —
-  canonical LLM-driven sandbox script.
-- [`evidence/runs/finish/FINISH-4-fw-runbook.md`](../evidence/runs/finish/FINISH-4-fw-runbook.md) —
-  firewall allowlist procedure.
-- [`evidence/runs/finish/FINISH-7-aca-runbook.md`](../evidence/runs/finish/FINISH-7-aca-runbook.md) —
-  ACA control-plane wiring (in progress).
+- [`examples/sdk_e2e.py`](../examples/sdk_e2e.py) — canonical first-sandbox script.
+- [`examples/kimi_via_osb.py`](../examples/kimi_via_osb.py) — one example of an LLM driving the sandbox.
