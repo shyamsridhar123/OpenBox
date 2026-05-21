@@ -1,0 +1,46 @@
+[17:34:13] === FINISHER START ===
+[17:34:13] AKS still=Deleting (deleting, ok)
+[17:36:19] AKS still=Deleting (deleting, ok)
+[17:38:23] AKS gone, launching deploy 005
+WARNING: C:\Users\shyamsridhar\code\openbox\infra\bicep\modules\aks.bicep(13,7) : Warning no-unused-params: Parameter "lawId" is declared but never used. [https://aka.ms/bicep/linter-diagnostics#no-unused-params]
+
+[17:40:40] deploy=Running aks=Creating vmss_ids=[]
+[17:42:54] deploy=Running aks=Creating vmss_ids=[]
+[17:45:07] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[17:47:29] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[17:49:57] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[17:52:26] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[17:54:42] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[17:56:58] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[17:59:15] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:01:31] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:03:46] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:06:06] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:08:31] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:10:56] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:14:20] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:16:49] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:19:12] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:21:34] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:23:55] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:26:17] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:28:37] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:31:07] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:33:43] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:36:07] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:38:37] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:41:06] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:43:35] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:46:05] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:48:29] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:50:59] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:53:31] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:56:10] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[18:58:41] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[19:01:13] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[19:03:54] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[19:06:31] deploy=Running aks=Creating vmss_ids=[0,1,2]
+[19:08:56] deploy=Canceled aks=Deleting vmss_ids=[0,1,2]
+[19:08:56] DEPLOY Canceled — PIVOT to ACI
+[19:11:26] ACI PIVOT. Stopping monitor; user will continue manually.
+[19:11:27] === FINISHER END ===

@@ -1,0 +1,163 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Pod","metadata":{"annotations":{},"labels":{"app":"kata-smoke"},"name":"kata-smoke","namespace":"default"},"spec":{"containers":[{"args":["set -e\necho \"=== kernel ===\"\nuname -a\necho \"=== /proc/1/cgroup ===\"\ncat /proc/1/cgroup | head\necho \"=== hypervisor evidence (dmesg) ===\"\ndmesg 2\u003e/dev/null | grep -i hyperv | head -5 || echo \"(dmesg restricted)\"\necho \"=== virtualization status ===\"\nls /sys/devices/virtual/dmi/id/ 2\u003e/dev/null | head -5 || true\ncat /sys/devices/virtual/dmi/id/sys_vendor 2\u003e/dev/null || echo \"(no DMI)\"\ncat /sys/devices/virtual/dmi/id/product_name 2\u003e/dev/null || echo \"(no DMI)\"\necho \"=== cpuinfo flags head ===\"\nhead -27 /proc/cpuinfo | tail -2\necho \"=== Hello from Kata ===\"\nsleep 5\n"],"command":["/bin/sh","-c"],"image":"mcr.microsoft.com/azurelinux/base/core:3.0","name":"probe"}],"nodeSelector":{"sandbox.io/runtime":"kata"},"restartPolicy":"Never","runtimeClassName":"kata-vm-isolation","tolerations":[{"effect":"NoSchedule","key":"runtime","operator":"Equal","value":"kata"}]}}
+  creationTimestamp: "2026-05-20T20:59:52Z"
+  generation: 1
+  labels:
+    app: kata-smoke
+  name: kata-smoke
+  namespace: default
+  resourceVersion: "35251"
+  uid: f2fe744a-564a-41ad-b8d4-d42bc905a6f9
+spec:
+  containers:
+  - args:
+    - |
+      set -e
+      echo "=== kernel ==="
+      uname -a
+      echo "=== /proc/1/cgroup ==="
+      cat /proc/1/cgroup | head
+      echo "=== hypervisor evidence (dmesg) ==="
+      dmesg 2>/dev/null | grep -i hyperv | head -5 || echo "(dmesg restricted)"
+      echo "=== virtualization status ==="
+      ls /sys/devices/virtual/dmi/id/ 2>/dev/null | head -5 || true
+      cat /sys/devices/virtual/dmi/id/sys_vendor 2>/dev/null || echo "(no DMI)"
+      cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null || echo "(no DMI)"
+      echo "=== cpuinfo flags head ==="
+      head -27 /proc/cpuinfo | tail -2
+      echo "=== Hello from Kata ==="
+      sleep 5
+    command:
+    - /bin/sh
+    - -c
+    image: mcr.microsoft.com/azurelinux/base/core:3.0
+    imagePullPolicy: IfNotPresent
+    name: probe
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-wj8hh
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: aks-kata-82442390-vmss000000
+  nodeSelector:
+    kubernetes.azure.com/kata-vm-isolation: "true"
+    sandbox.io/runtime: kata
+  overhead:
+    memory: 600Mi
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Never
+  runtimeClassName: kata-vm-isolation
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoSchedule
+    key: runtime
+    operator: Equal
+    value: kata
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - name: kube-api-access-wj8hh
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2026-05-20T21:00:15Z"
+    observedGeneration: 1
+    status: "False"
+    type: PodReadyToStartContainers
+  - lastProbeTime: null
+    lastTransitionTime: "2026-05-20T20:59:52Z"
+    observedGeneration: 1
+    reason: PodCompleted
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2026-05-20T21:00:08Z"
+    observedGeneration: 1
+    reason: PodCompleted
+    status: "False"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2026-05-20T21:00:08Z"
+    observedGeneration: 1
+    reason: PodCompleted
+    status: "False"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2026-05-20T20:59:52Z"
+    observedGeneration: 1
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - containerID: containerd://f5ecf6f6b90a159c3438e04388bc4eed3a812b89574c6622212b1c9214601b85
+    image: mcr.microsoft.com/azurelinux/base/core:3.0
+    imageID: mcr.microsoft.com/azurelinux/base/core@sha256:f5e224c47997aa4a5d3d8addfcc3866e175e7026368a71ce1be2c0eed1876f04
+    lastState: {}
+    name: probe
+    ready: false
+    resources: {}
+    restartCount: 0
+    started: false
+    state:
+      terminated:
+        containerID: containerd://f5ecf6f6b90a159c3438e04388bc4eed3a812b89574c6622212b1c9214601b85
+        exitCode: 0
+        finishedAt: "2026-05-20T21:00:08Z"
+        reason: Completed
+        startedAt: "2026-05-20T21:00:03Z"
+    user:
+      linux:
+        gid: 0
+        supplementalGroups:
+        - 0
+        uid: 0
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-wj8hh
+      readOnly: true
+      recursiveReadOnly: Disabled
+  hostIP: 10.10.2.10
+  hostIPs:
+  - ip: 10.10.2.10
+  observedGeneration: 1
+  phase: Succeeded
+  podIP: 10.10.2.112
+  podIPs:
+  - ip: 10.10.2.112
+  qosClass: BestEffort
+  startTime: "2026-05-20T20:59:52Z"

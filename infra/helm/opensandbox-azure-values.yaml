@@ -1,0 +1,66 @@
+# Azure-tuned values for upstream opensandbox helm chart.
+
+opensandbox-controller:
+  controller:
+    image:
+      repository: acropensandboxdemo7075.azurecr.io/opensandbox/controller
+      tag: v0.1.14
+      pullPolicy: IfNotPresent
+    replicaCount: 1
+    logLevel: info
+    tolerations: []
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: sandbox.io/runtime
+              operator: NotIn
+              values: ["kata"]
+
+opensandbox-server:
+  imagePullSecrets: []
+  server:
+    image:
+      repository: acropensandboxdemo7075.azurecr.io/opensandbox/server
+      tag: v0.1.14
+    replicaCount: 1
+    resources:
+      requests: { cpu: "100m", memory: "512Mi" }
+      limits:   { cpu: "1",    memory: "2Gi" }
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: sandbox.io/runtime
+              operator: NotIn
+              values: ["kata"]
+    env:
+      - name: OPENSANDBOX_SERVER_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: opensandbox-api-key
+            key: api-key
+    gateway:
+      enabled: false
+
+  # Override the server config TOML — point execd at our ACR
+  configToml: |
+    [server]
+    host = "0.0.0.0"
+    port = 80
+    api_key = ""
+
+    [log]
+    level = "INFO"
+
+    [runtime]
+    type = "kubernetes"
+    execd_image = "acropensandboxdemo7075.azurecr.io/opensandbox/execd:v1.0.8"
+
+    [kubernetes]
+    kubeconfig_path = ""
+    namespace = "opensandbox"
+    informer_enabled = true
+    informer_resync_seconds = 300

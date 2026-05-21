@@ -1,0 +1,6 @@
+NAME                                STATUS   ROLES    AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                    KERNEL-VERSION         CONTAINER-RUNTIME    RUNTIME   KATA-MSHV-VM-ISOLATION   ZONE
+aks-kata-82442390-vmss000000        Ready    <none>   10m   v1.34.7   10.10.2.10    <none>        Microsoft Azure Linux 3.0   6.6.121.mshv1-2.azl3   containerd://2.1.6   kata                               eastus2-2
+aks-kata-82442390-vmss000001        Ready    <none>   10m   v1.34.7   10.10.2.19    <none>        Microsoft Azure Linux 3.0   6.6.121.mshv1-2.azl3   containerd://2.1.6   kata                               eastus2-3
+aks-nodepool1-13814532-vmss000000   Ready    <none>   95m   v1.34.7   10.10.1.39    <none>        Microsoft Azure Linux 3.0   6.6.130.1-3.azl3       containerd://2.0.0                                      eastus2-2
+aks-nodepool1-13814532-vmss000001   Ready    <none>   95m   v1.34.7   10.10.1.65    <none>        Microsoft Azure Linux 3.0   6.6.130.1-3.azl3       containerd://2.0.0                                      eastus2-3
+aks-nodepool1-13814532-vmss000002   Ready    <none>   95m   v1.34.7   10.10.1.10    <none>        Microsoft Azure Linux 3.0   6.6.130.1-3.azl3       containerd://2.0.0                                      eastus2-2

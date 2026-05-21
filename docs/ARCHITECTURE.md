@@ -1,99 +1,297 @@
 # Architecture
 
+This document describes what is actually deployed in `rg-opensandbox-dev` and
+`rg-opensandbox-demo` today, how the pieces fit together, and the failure modes the team has hit
+and recovered from. Each claim should be reproducible from a `kubectl` or `az` command; lines
+labelled "current state, may drift" depend on live cluster output rather than code.
+
 ## TL;DR
 
-OpenSandbox on Azure = **Hybrid (ACA control plane + AKS+Kata sandbox runtime)**.
+OpenSandbox on Azure is the upstream [alibaba/OpenSandbox](https://github.com/alibaba/OpenSandbox)
+control plane running on AKS, with Kata Containers providing per-pod VM-grade isolation.
+Everything else — registry, firewall, audit pipeline, identity, Foundry integration — is the
+Azure landing zone wrapped around it. The trust boundary is **Kata**, not the Linux namespace.
 
-- The control plane is stateless HTTP and benefits from ACA's managed surface (Easy Auth, KEDA, private ingress).
-- The sandbox runtime requires Kubernetes CRDs (OpenSandbox upstream design), so it must live on AKS.
-- Sandbox pods use Kata Containers (`runtimeClassName: kata-vm-isolation`) for VM-grade isolation of untrusted code.
-- Trust boundary is **Kata**, not namespaces. Namespaces are logical separation per user.
-- Identity is **end-to-end** — every action ties to an Entra user OID via OBO → JWT → Workload Identity.
+## Component map
 
-## Why this shape
+```
+                                  internet
+                                     |
+                                     |  (laptop)
+                                     v
+        +-----------------------+        +-----------------------+
+        | Microsoft Foundry     |        | developer SDK         |
+        | aihubeastus26267492086|        | (opensandbox python)  |
+        | Kimi-K2.5 / Kimi-K2.6 |        |  kubectl port-forward |
+        +-----------+-----------+        +-----------+-----------+
+                    |                                |
+                    | AAD bearer                     | api-key
+                    | (cognitiveservices.azure.com)  | localhost:18080
+                    v                                v
+                    +------+    +-------------------------------------+
+                           |    |  AKS cluster aks-opensandbox-dev    |
+                           |    |  v1.34.7, Azure CNI Overlay, Cilium |
+                           |    |                                     |
+                           |    |  +-------------------------------+  |
+                           |    |  | opensandbox-server (FastAPI)  |  |
+                           |    +->|   POST /v1/sandboxes ...      |  |
+                           |       |   WebSocket exec              |  |
+                           |       +---------------+---------------+  |
+                           |                       |                  |
+                           |                       v                  |
+                           |       +-------------------------------+  |
+                           |       | opensandbox-controller-mgr    |  |
+                           |       | (Go, watches BatchSandbox CRD)|  |
+                           |       +---------------+---------------+  |
+                           |                       |                  |
+                           |                       v  scheduled to    |
+                           |                          Kata node pool  |
+                           |       +-------------------------------+  |
+                           |       | Sandbox pod                   |  |
+                           |       |  runtimeClassName:            |  |
+                           |       |   kata-vm-isolation           |  |
+                           |       |  init:  execd v1.0.8          |  |
+                           |       |  side:  execd daemon          |  |
+                           |       |  user:  python:3.12-slim      |  |
+                           |       |  inner kernel: 6.6.130.1-azl3 |  |
+                           |       +---------------+---------------+  |
+                           |                       |                  |
+                           |   ACA env             | egress           |
+                           |   acaenv-opensandbox  |                  |
+                           |   (FINISH-7 wiring)   v                  |
+                           |    snet-aca       UDR rt-snet-kata-dev   |
+                           |                       |                  |
+                           +-----------------------+------------------+
+                                                   |
+                                                   v
+                                  +-------------------------------+
+                                  | Azure Firewall Premium        |
+                                  | afw-opensandbox-dev           |
+                                  | policy afwp-opensandbox-dev   |
+                                  | rcg-aks-bootstrap (p=100)     |
+                                  | rcg-sandbox-egress (p=200)    |
+                                  | deny-all     (p=300)          |
+                                  +---------------+---------------+
+                                                  |
+                                                  v
+                              pypi / npm / proxy.golang.org / azlinux pkg repos
 
-See the [consensus ADR](../.omc/plans/ralplan-implement-opensandbox-in-azure.md#adr-final) for full reasoning.
 
-The short version:
+   +---------------------------+     +--------------------------------+
+   | ACR Premium               |     | Key Vault kv-opensandbox-dev   |
+   | acropensandboxdemo7075    |     |   private endpoint pe-kv-...   |
+   |   public access: DISABLED |     |   stores: API keys, certs      |
+   |   PE pe-acr-... 10.10.12.6|     +--------------------------------+
+   |   DNS privatelink.azurecr.|
+   |   7 images: controller,   |     +--------------------------------+
+   |   server, execd, ingress, |     | Workload Identity              |
+   |   code-interp-base,       |     | id-kimi-demo-dev               |
+   |   code-interp, sandbox    |     |   federated to demo/sa         |
+   +-------------+-------------+     +--------------------------------+
+                 |
+                 v  kubelet pull via PE
+              AKS nodes
 
-- **AKS for the runtime, not ACA.** OpenSandbox uses K8s CRDs and a controller, which ACA cannot host. ACA Dynamic Sessions was considered and rejected for the same reason.
-- **ACA for the control plane, not AKS.** ACA gives Easy Auth (free Entra SSO for the portal), KEDA HTTP scaling, and managed TLS. AKS gives none of those for HTTP workloads without significant boilerplate (cert-manager, ingress-nginx, oauth2-proxy).
-- **Hybrid means two IaC stacks and two observability lanes.** We accept this cost in exchange for not building a portal auth proxy ourselves.
 
-## Components
+   Audit lane
+   ----------
+                                                                  +-----+
+   sandbox pod  -->  Fluent Bit DS  -->  Event Hubs  -->  Stream  | blob|
+   (execd logs)      (on Kata pool)      evhns-opensand   Analytics|stas |
+                                         box-dev          asa-...  |...  |
+                                         hub sandbox-     Running   audit|
+                                         audit-fast       MI: EH    -fast|
+                                         (4 partitions,   Receiver +     |
+                                         LocalAuth        Blob Data      |
+                                         Disabled)        Contributor    |
+                                                                  +-----+
+```
 
-### Control plane (ACA)
-- `apps/control-plane/` — FastAPI service: `POST /sessions`, `POST /sessions/{id}/run`, `DELETE /sessions/{id}`, `POST /users/{oid}/provision`. Validates Entra OBO bearer tokens against JWKS; performs OBO exchange to obtain a downstream token targeted at the AAD-integrated AKS server app; calls AKS API as the user. `minReplicas=1` (scale-to-zero is incompatible with the 5-s cold-start SLA per the consensus plan).
-- `apps/portal-api/` — Read-only FastAPI service backing the portal: `GET /me/sessions`, `GET /me/audit`, `GET /me/quota`. Uses control-plane API + Log Analytics direct queries via Managed Identity.
-- `apps/portal-frontend/` — React on ACA with Easy Auth (Entra SSO). Read-only views: Sessions, Audit Log, Quota.
+The eleven components from the operator's mental model:
 
-### Sandbox runtime (AKS)
-- **Controller + CRDs:** the OpenSandbox upstream controller, deployed via Helm in namespace `opensandbox-system`, scheduled to the `system` node pool.
-- **execd DaemonSet:** the OpenSandbox execution daemon, deployed as a DaemonSet on the `kata` node pool. Runs as `runc` (not Kata) since it's infrastructure, not user code.
-- **Image pre-warm DaemonSet:** pulls all curated base images on node startup. Nodes are tainted `pre-warm=pending:NoSchedule` until pulls complete. Sandbox pods cannot land on a not-yet-warm node.
-- **Sandbox pods:** one Kata pod per session, in the user's namespace `ns-<user-oid>`. Mounted projected SA token federated to the user's UAMI.
+1. AKS cluster `aks-opensandbox-dev`
+2. Kata sandbox node pool + `kata-vm-isolation` runtime class
+3. OpenSandbox control plane (controller, server, `execd`)
+4. ACR Premium `acropensandboxdemo7075` + private endpoint
+5. Azure Firewall Premium `afw-opensandbox-dev` + UDR
+6. Cilium dataplane + ACNS (Hubble UI, L7 FQDN policies)
+7. Event Hubs `evhns-opensandbox-dev` + Stream Analytics + blob output
+8. ACA environment `acaenv-opensandbox-dev` (FINISH-7 in progress)
+9. Foundry `aihubeastus26267492086` with Kimi-K2.5 / K2.6
+10. Workload Identity `id-kimi-demo-dev` federated to the `demo` SA
+11. Key Vault `kv-opensandbox-dev` + private endpoint
 
-### Identity
-- **User → control plane:** Entra ID bearer token (OBO). Audience = OpenSandbox API app reg.
-- **Control plane → AKS API:** confidential-client OBO exchange. Audience = AKS server app ID (from the cluster's AAD profile). NOT `management.azure.com`. AKS audit log records the user's OID as the requester.
-- **Sandbox pod → Azure resources:** Entra Workload Identity. One UAMI per user namespace (respects the 20-federated-credentials-per-UAMI ceiling).
-- **Shared warm-pool tier (opt-in only):** uses a `tier=shared` UAMI with read-only KV scope, 5-minute token lifetime, IP-bound CA policy, rate limits. Audit log records `identity_tier=shared_warm_pool`.
+## VNet layout
 
-### Network
-- **AKS:** private cluster (API server on private endpoint), Cilium + ACNS for L7 NetworkPolicy.
-- **External access:** Internet → Application Gateway (WAF) → ACA private ingress.
-- **Sandbox egress:** UDR from `snet-kata` forces `0.0.0.0/0` through Azure Firewall. Firewall SKU is **conditional** on Phase 0 spike result (see `Task 1.5` of plan):
-  - If Cilium L7 works on Kata pods → Standard SKU + Cilium L7 as primary enforcement.
-  - If Cilium L7 fails on Kata pods → Premium SKU with SNI-based filtering.
-- **Service endpoints:** ACR, Key Vault, Log Analytics, Event Hubs — all on private endpoints; no public access.
+`vnet-opensandbox-dev` is `10.10.0.0/16` in `eastus2`.
 
-### Image supply chain
-- **ACR Premium**, geo-replication-capable (1 region active in v1).
-- **Notation (Notary v2)** signing with Key Vault-backed cert. ALWAYS two certs (primary + secondary) with 14-day minimum overlap, IaC-enforced.
-- **Ratify + Gatekeeper** at AKS admission. Pods whose image is not signed by a trusted cert are rejected with a clear error.
-- **ACR Tasks** build pipeline. Defender for Containers scans on push; high/critical CVEs block deployment.
+| Subnet | CIDR | Purpose | NSG | UDR |
+|---|---|---|---|---|
+| snet-system | 10.10.1.0/24 | AKS system nodepool (controller, server, ingress) | nsg-snet-system-dev | none (direct SLB egress) |
+| snet-kata | 10.10.2.0/23 | Kata sandbox pool | nsg-snet-kata-dev | rt-snet-kata-dev → Firewall |
+| snet-aca | 10.10.4.0/23 | ACA infrastructure (control-plane apps) | nsg-snet-aca-dev | none |
+| AzureFirewallSubnet | 10.10.10.0/26 | Azure Firewall data plane | none (required by Azure) | none |
+| snet-appgw | 10.10.11.0/26 | App Gateway (Layer 7 ingress) | nsg-snet-appgw-dev | none |
+| snet-pe | 10.10.12.0/24 | Private endpoints (ACR, KV, EH, ...) | nsg-snet-pe-dev | none |
 
-### Audit & observability
-- **Fast-path audit (≤60s SLA):** `execd` → Fluent Bit → **Event Hubs → Stream Analytics → Log Analytics**. Container Insights (2-10 min ingestion) is too slow for AC #12.
-- **Slow-path logs:** Container Insights for routine container logs.
-- **Traces:** `traceparent` header propagated SDK → ACA → AKS API → kubelet → execd; a single trace_id spans all four.
-- **Defender for Containers:** enabled, with the known gap that Kata pods aren't assessed. KQL alert compensates.
+The system pool sits in `snet-system` and uses direct outbound type for control-plane traffic;
+only the Kata pool is forced through the firewall.
 
-## Failure modes & mitigations
+## Identity flow
 
-| Failure | Mitigation |
-|---|---|
-| Kata cold start > 5 s | Image pre-warm DaemonSet + node-readiness taint. Default tier targets 5 s p95; opt-in shared-pool tier targets 500 ms. |
-| Notation cert rotation downtime | Dual-cert TrustPolicy, 14-day overlap, canary CI test. |
-| Workload Identity propagation race | `POST /users/<oid>/provision` doesn't return 200 until a throwaway pod successfully acquires a token. 90-s bound. |
-| Upstream CVE we miss | Minimal patch surface (≤100 LOC), weekly upstream-sync CI, 72-h critical-CVE SLA. |
-| KV signing cert loss | Backed up to Azure Backup for KV + offline copy. Quarterly DR drill. |
-| Container escape from Kata | 3 deterministic PoCs run in CI on every PR. Failure pages on-call. |
+Two distinct flows. The Foundry / Kimi flow is end-to-end Workload Identity Federation; the
+laptop SDK flow currently uses a plain API key stored in `kv-opensandbox-dev`.
 
-## What this scaffold does NOT do
+```
+  Workload Identity flow (in-cluster Kimi demo, kimi-demo-success.log)
+  --------------------------------------------------------------------
 
-This codebase is **the scaffold**. It does NOT include:
+  +-----------------+        +-------------------------+
+  | kimi-demo pod   |        | OIDC issuer of cluster  |
+  | namespace: demo |---(1)->| (oidc-discovery URL on  |
+  | SA: kimi-demo   |        |  AKS, public)           |
+  | SA token        |        +-----------+-------------+
+  | (projected,     |                    |
+  | audience=AzureAD|                    | (2) verify signature, claim issuer
+  +--------+--------+                    v
+           |                  +-------------------------+
+           |                  | Microsoft Entra ID      |
+           +------------(3)-->| federated credential on |
+                   exchange   | id-kimi-demo-dev:       |
+                              |   subject=system:       |
+                              |     serviceaccount:     |
+                              |     demo:kimi-demo      |
+                              +-----------+-------------+
+                                          |
+                                          | (4) issue AAD access token
+                                          v   audience=cognitiveservices.azure.com
+                              +-------------------------+
+                              | Foundry Kimi endpoint   |
+                              | aihubeastus26267492086  |
+                              +-------------------------+
 
-- A fully-tested, production-deployed AKS cluster — Phase 0 spikes must run first.
-- An actually-built control plane Docker image — Dockerfile is present; image build requires a real ACR.
-- A populated curated image catalog — `infra/images/<lang>/Dockerfile` are stubs for the platform team to extend.
-- Real OpenSandbox upstream code — the Helm chart references the upstream Docker image; we have not forked yet.
 
-The next session(s) — by a human team, or by extending this scaffold via `/oh-my-claudecode:ralph` against `.omc/plans/ralplan-implement-opensandbox-in-azure.md` — should:
+  Laptop SDK flow (sdk_e2e.py)
+  ----------------------------
 
-1. Run the Phase 0 spikes against a real Azure dev subscription.
-2. Fill out Bicep module bodies based on spike results.
-3. Implement the FastAPI handlers (skeleton present; business logic stubbed).
-4. Build the OpenSandbox fork with minimal Entra patches.
-5. Implement the JS and Go SDKs against the Python reference.
+  developer az login --> az get-access-token --resource=cognitiveservices  (for Kimi only)
+                                       |
+                                       v
+            opensandbox SDK -- api-key (kv-backed) --> opensandbox-server
+                                       |
+                                       v
+                              same cluster path
+```
+
+Federated credential definition lives in
+[`evidence/runs/finish/wi-federated-credential.json`](../evidence/runs/finish/wi-federated-credential.json);
+the matching role assignment is in
+[`evidence/runs/finish/wi-role-assignment.txt`](../evidence/runs/finish/wi-role-assignment.txt).
+
+## Egress flow for a sandbox pod
+
+```
+  user container                       inner Kata VM                       Azure node
+  +-----------------+                  +-----------------+                 +--------------+
+  | python:3.12     |   syscall to     | guest kernel    |   virtio-net    | kata-shim    |
+  | pip install ... |--socket------>   | 6.6.130.1-azl3  |---------------->| veth on host |
+  +-----------------+                  +-----------------+                 +------+-------+
+                                                                                  |
+                                                                                  v
+                                                                          +---------------+
+                                                                          | Cilium ENI    |
+                                                                          | overlay       |
+                                                                          | Hubble can    |
+                                                                          | observe L7    |
+                                                                          | FQDN policy   |
+                                                                          +-------+-------+
+                                                                                  |
+                                                                                  | UDR override
+                                                                                  v rt-snet-kata-dev
+                                                                          +---------------+
+                                                                          | Azure FW Prem |
+                                                                          | DNS proxy ON  |
+                                                                          | TLS inspect   |
+                                                                          | FQDN tag      |
+                                                                          | AzureKuber-   |
+                                                                          | netesService  |
+                                                                          | + pypi/npm/   |
+                                                                          | golang allow- |
+                                                                          | list          |
+                                                                          +-------+-------+
+                                                                                  |
+                                                                                  v
+                                                                            internet
+```
+
+Two layers of enforcement: Cilium L7 FQDN policy applies first on egress from the pod;
+Azure Firewall is the network-layer backstop. The deny-all rule collection at priority 300 in
+`afwp-opensandbox-dev` ensures anything not explicitly allowed is dropped.
+
+## Image supply chain
+
+```
+   developer / CI  --(az acr build)-->  ACR Premium
+                                          acropensandboxdemo7075
+                                          (public access DISABLED)
+                                                |
+                                                | private endpoint
+                                                v
+                                          snet-pe (10.10.12.6)
+                                                |
+                                                | privatelink.azurecr.io
+                                                | linked to vnet
+                                                v
+                                          kubelet on AKS node
+                                                |
+                                                | OCI pull
+                                                v
+                                          containerd
+                                                |
+                                                v
+                                          Kata runtime  --launches-->  inner VM with
+                                                                       OCI image rootfs
+```
+
+Tagged images currently in the registry (7 total): `controller v0.1.14`, `server v0.1.14`,
+`execd v1.0.8`, `ingress`, `code-interpreter-base v1.0.0`, `code-interpreter v1.0.0`,
+`sandbox/base/python`. Pull failures on a brand-new node manifest as `ImagePullBackOff` with a
+TLS handshake error — re-check the private DNS zone linkage first.
+
+## Failure modes & recovery
+
+| Failure | What it looks like | How we recover |
+|---|---|---|
+| `bootstrap.sh` has CRLF line endings | Sandbox pod restarts in a tight loop; `kubectl logs <pod> -c execd-init` shows `bash: bootstrap.sh: cannot execute: required file not found` even though the file is present | `.gitattributes` enforces LF on `*.sh`; re-build the execd image (`infra/helm/opensandbox/...`). The teaching story is below. |
+| Firewall in `Failed` provisioning state | `az network firewall show ... --query provisioningState` returns `Failed`; sandbox pods can't pull from pypi | Patch the policy with `az network firewall policy update --idle-timeout 60`, then `az network firewall show ... --query 'sku'` to confirm Premium SKU intact. Trace in [`evidence/runs/finish/fw-failure-trace.md`](../evidence/runs/finish/fw-failure-trace.md). |
+| ACR private endpoint DNS drift | `kubectl describe pod` shows `failed to resolve reference ... acropensandboxdemo7075.azurecr.io: no such host` | Verify `privatelink.azurecr.io` is linked to `vnet-opensandbox-dev`; flush kubelet DNS cache by restarting the node pool one node at a time. |
+| Stream Analytics job stops on storage 401 | ASA shows `Stopped` with `Authorization` errors in diagnostic logs | Re-assert `Storage Blob Data Contributor` on the ASA system-assigned MI; restart the job. |
+| Cluster autoscaler stuck on Kata pool | Pods Pending with `0/3 nodes are available: 3 node(s) didn't match node selector` | `az aks nodepool update -g rg-opensandbox-dev --cluster-name aks-opensandbox-dev -n kata --update-cluster-autoscaler --min-count 1 --max-count 4` (current state, may drift) |
+| Event Hubs LocalAuth attempted | App logs show `401 Unauthorized` against EH endpoint when an older Fluent Bit shipped a SAS key | Confirm `evhns-opensandbox-dev` has `disableLocalAuth: true`; switch Fluent Bit auth plugin to AAD. |
+
+## The CRLF bootstrap.sh story
+
+When we first stood up the sandbox image on a Windows developer workstation, every pod entered
+`CrashLoopBackOff` with the same misleading error: `cannot execute: required file not found`,
+pointing at a `bootstrap.sh` that was clearly present in the layer. The file looked fine in `cat`
+output. It only became visible with `od -c` — the shebang line ended in `\r\n` instead of `\n`,
+and the kernel was looking for an interpreter named `/bin/bash\r`, which of course did not exist.
+
+The fix is two-fold and both halves matter:
+
+1. Repository-level: a `.gitattributes` entry forces `*.sh` to LF on checkout. Without this, the
+   next developer cloning on Windows would re-introduce the bug invisibly.
+2. Image-level: the `Dockerfile` for `execd` runs `sed -i 's/\r$//' bootstrap.sh` as a belt-and-
+   braces guard against any other tool inserting CRs.
+
+This is also why `third_party/opensandbox/sandboxes/base/bootstrap.sh` is one of the two upstream
+patches we carry — the upstream tree assumes Linux-only contributors, which is no longer true.
 
 ## References
 
-- Plan: `.omc/plans/ralplan-implement-opensandbox-in-azure.md`
-- Spec: `.omc/specs/deep-dive-implement-opensandbox-in-azure.md`
+- [Plan: ralplan](../.omc/plans/ralplan-implement-opensandbox-in-azure.md)
+- [Acceptance checklist](acceptance-checklist.md)
 - [AKS Pod Sandboxing (Kata)](https://learn.microsoft.com/azure/aks/use-pod-sandboxing)
-- [AKS Workload Identity](https://learn.microsoft.com/azure/aks/workload-identity-overview)
-- [Entra OBO flow](https://learn.microsoft.com/entra/identity-platform/v2-oauth2-on-behalf-of-flow)
-- [Notation / Ratify on AKS](https://learn.microsoft.com/azure/security/container-secure-supply-chain/articles/validating-image-signatures-using-ratify-aks)
-- [AKS Baseline Architecture](https://learn.microsoft.com/azure/architecture/reference-architectures/containers/aks/baseline-aks)
+- [AKS Workload Identity overview](https://learn.microsoft.com/azure/aks/workload-identity-overview)
+- [Azure Firewall Premium](https://learn.microsoft.com/azure/firewall/premium-features)
 - [Alibaba OpenSandbox](https://github.com/alibaba/OpenSandbox)

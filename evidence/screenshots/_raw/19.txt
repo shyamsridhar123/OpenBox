@@ -1,0 +1,4 @@
+Name                Priority    ProvisioningState    ResourceGroup
+------------------  ----------  -------------------  ------------------
+rcg-aks-bootstrap   100         Succeeded            rg-opensandbox-dev
+rcg-sandbox-egress  200         Succeeded            rg-opensandbox-dev

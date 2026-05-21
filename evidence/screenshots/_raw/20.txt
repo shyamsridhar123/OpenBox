@@ -1,0 +1,5 @@
+{
+  "name": "snet-kata",
+  "prefix": "10.10.2.0/23",
+  "routeTable": "/subscriptions/b914f690-dab0-4208-98af-c7ee89ab9040/resourceGroups/rg-opensandbox-dev/providers/Microsoft.Network/routeTables/rt-snet-kata-dev"
+}

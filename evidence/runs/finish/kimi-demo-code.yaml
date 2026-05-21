@@ -1,0 +1,119 @@
+apiVersion: v1
+data:
+  run.py: |
+    #!/usr/bin/env python3
+    import os, json, urllib.request, urllib.error, subprocess, platform, time, re
+
+    print("=" * 60)
+    print(f"sandbox kernel:    {platform.release()}")
+    with open("/sys/devices/virtual/dmi/id/sys_vendor", "r") as f:
+        print(f"hypervisor:        {f.read().strip()}")
+    with open("/sys/devices/virtual/dmi/id/product_name", "r") as f:
+        print(f"product_name:      {f.read().strip()}")
+    print("=" * 60)
+
+    aad_token_file = os.environ["AZURE_FEDERATED_TOKEN_FILE"]
+    client_id = os.environ["AZURE_CLIENT_ID"]
+    tenant_id = os.environ["AZURE_TENANT_ID"]
+    with open(aad_token_file) as f:
+        fed_jwt = f.read().strip()
+    body = (
+        f"grant_type=client_credentials&"
+        f"client_id={client_id}&"
+        f"scope=https://cognitiveservices.azure.com/.default&"
+        f"client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&"
+        f"client_assertion={fed_jwt}"
+    ).encode()
+    req = urllib.request.Request(
+        f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
+        data=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    token = json.loads(urllib.request.urlopen(req).read())["access_token"]
+    print(f"got Entra token, prefix: {token[:20]}...")
+
+    ENDPOINT = "https://aihubeastus26267492086.cognitiveservices.azure.com"
+    DEPLOYMENTS = ["Kimi-K2.5", "Kimi-K2.6"]
+
+    payload = {
+        "messages": [
+            {"role": "user", "content": "Write a Python program inside <code>...</code> tags that prints the first 5 prime numbers, one per line. Only the code, no explanation."}
+        ],
+        "max_tokens": 4000,
+        "temperature": 0.0,
+    }
+    raw = ""
+    model_used = None
+    for dep in DEPLOYMENTS:
+        url = f"{ENDPOINT}/openai/deployments/{dep}/chat/completions?api-version=2024-10-21"
+        for attempt in range(3):
+            try:
+                req = urllib.request.Request(
+                    url, data=json.dumps(payload).encode(),
+                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                )
+                resp = json.loads(urllib.request.urlopen(req, timeout=60).read())
+                msg = resp["choices"][0]["message"]
+                raw = msg.get("content") or ""
+                if not raw and msg.get("reasoning_content"):
+                    print(f"[{dep}] content empty, has reasoning_content; using it.")
+                    raw = msg["reasoning_content"]
+                if raw.strip():
+                    model_used = dep
+                    print(f"[{dep}] returned {len(raw)} chars on attempt {attempt+1}.")
+                    break
+            except urllib.error.HTTPError as e:
+                err = e.read().decode()
+                print(f"[{dep}] attempt {attempt+1} HTTP {e.code}: {err[:200]}")
+                if e.code == 429:
+                    time.sleep(2 ** attempt)
+                else:
+                    break
+            except Exception as e:
+                print(f"[{dep}] attempt {attempt+1} error: {e}")
+                time.sleep(2 ** attempt)
+        if raw.strip():
+            break
+
+    print("=" * 60)
+    print(f"Model used: {model_used}")
+    print(f"Raw response ({len(raw)} chars):")
+    print("-" * 60)
+    print(raw[:1500])
+    print("-" * 60)
+
+    m = re.search(r"<code>(.*?)</code>", raw, re.S)
+    if m:
+        generated = m.group(1).strip()
+    else:
+        generated = raw.strip()
+    # Strip markdown fences whether they're inside <code> or not
+    generated = re.sub(r"^```[a-zA-Z]*\n?", "", generated, flags=re.M)
+    generated = generated.replace("```", "").strip()
+
+    print("Extracted code:")
+    print("-" * 60)
+    print(generated)
+    print("=" * 60)
+
+    print("Executing inside Kata sandbox:")
+    print("-" * 60)
+    result = subprocess.run(
+        ["python3", "-c", generated],
+        capture_output=True, text=True, timeout=10,
+    )
+    print(f"stdout: {result.stdout!r}")
+    print(f"stderr: {result.stderr!r}")
+    print(f"exit:   {result.returncode}")
+    print("=" * 60)
+    print("E2E SUCCESS" if (result.returncode == 0 and result.stdout.strip()) else "E2E FAIL")
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"run.py":"#!/usr/bin/env python3\nimport os, json, urllib.request, urllib.error, subprocess, platform, time, re\n\nprint(\"=\" * 60)\nprint(f\"sandbox kernel:    {platform.release()}\")\nwith open(\"/sys/devices/virtual/dmi/id/sys_vendor\", \"r\") as f:\n    print(f\"hypervisor:        {f.read().strip()}\")\nwith open(\"/sys/devices/virtual/dmi/id/product_name\", \"r\") as f:\n    print(f\"product_name:      {f.read().strip()}\")\nprint(\"=\" * 60)\n\naad_token_file = os.environ[\"AZURE_FEDERATED_TOKEN_FILE\"]\nclient_id = os.environ[\"AZURE_CLIENT_ID\"]\ntenant_id = os.environ[\"AZURE_TENANT_ID\"]\nwith open(aad_token_file) as f:\n    fed_jwt = f.read().strip()\nbody = (\n    f\"grant_type=client_credentials\u0026\"\n    f\"client_id={client_id}\u0026\"\n    f\"scope=https://cognitiveservices.azure.com/.default\u0026\"\n    f\"client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer\u0026\"\n    f\"client_assertion={fed_jwt}\"\n).encode()\nreq = urllib.request.Request(\n    f\"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token\",\n    data=body,\n    headers={\"Content-Type\": \"application/x-www-form-urlencoded\"},\n)\ntoken = json.loads(urllib.request.urlopen(req).read())[\"access_token\"]\nprint(f\"got Entra token, prefix: {token[:20]}...\")\n\nENDPOINT = \"https://aihubeastus26267492086.cognitiveservices.azure.com\"\nDEPLOYMENTS = [\"Kimi-K2.5\", \"Kimi-K2.6\"]\n\npayload = {\n    \"messages\": [\n        {\"role\": \"user\", \"content\": \"Write a Python program inside \u003ccode\u003e...\u003c/code\u003e tags that prints the first 5 prime numbers, one per line. Only the code, no explanation.\"}\n    ],\n    \"max_tokens\": 4000,\n    \"temperature\": 0.0,\n}\nraw = \"\"\nmodel_used = None\nfor dep in DEPLOYMENTS:\n    url = f\"{ENDPOINT}/openai/deployments/{dep}/chat/completions?api-version=2024-10-21\"\n    for attempt in range(3):\n        try:\n            req = urllib.request.Request(\n                url, data=json.dumps(payload).encode(),\n                headers={\"Authorization\": f\"Bearer {token}\", \"Content-Type\": \"application/json\"},\n            )\n            resp = json.loads(urllib.request.urlopen(req, timeout=60).read())\n            msg = resp[\"choices\"][0][\"message\"]\n            raw = msg.get(\"content\") or \"\"\n            if not raw and msg.get(\"reasoning_content\"):\n                print(f\"[{dep}] content empty, has reasoning_content; using it.\")\n                raw = msg[\"reasoning_content\"]\n            if raw.strip():\n                model_used = dep\n                print(f\"[{dep}] returned {len(raw)} chars on attempt {attempt+1}.\")\n                break\n        except urllib.error.HTTPError as e:\n            err = e.read().decode()\n            print(f\"[{dep}] attempt {attempt+1} HTTP {e.code}: {err[:200]}\")\n            if e.code == 429:\n                time.sleep(2 ** attempt)\n            else:\n                break\n        except Exception as e:\n            print(f\"[{dep}] attempt {attempt+1} error: {e}\")\n            time.sleep(2 ** attempt)\n    if raw.strip():\n        break\n\nprint(\"=\" * 60)\nprint(f\"Model used: {model_used}\")\nprint(f\"Raw response ({len(raw)} chars):\")\nprint(\"-\" * 60)\nprint(raw[:1500])\nprint(\"-\" * 60)\n\nm = re.search(r\"\u003ccode\u003e(.*?)\u003c/code\u003e\", raw, re.S)\nif m:\n    generated = m.group(1).strip()\nelse:\n    generated = raw.strip()\n# Strip markdown fences whether they're inside \u003ccode\u003e or not\ngenerated = re.sub(r\"^```[a-zA-Z]*\\n?\", \"\", generated, flags=re.M)\ngenerated = generated.replace(\"```\", \"\").strip()\n\nprint(\"Extracted code:\")\nprint(\"-\" * 60)\nprint(generated)\nprint(\"=\" * 60)\n\nprint(\"Executing inside Kata sandbox:\")\nprint(\"-\" * 60)\nresult = subprocess.run(\n    [\"python3\", \"-c\", generated],\n    capture_output=True, text=True, timeout=10,\n)\nprint(f\"stdout: {result.stdout!r}\")\nprint(f\"stderr: {result.stderr!r}\")\nprint(f\"exit:   {result.returncode}\")\nprint(\"=\" * 60)\nprint(\"E2E SUCCESS\" if (result.returncode == 0 and result.stdout.strip()) else \"E2E FAIL\")\n"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"kimi-demo-code","namespace":"demo"}}
+  creationTimestamp: "2026-05-20T21:14:35Z"
+  name: kimi-demo-code
+  namespace: demo
+  resourceVersion: "40670"
+  uid: cde31f90-1d74-4d62-bd3e-5e8b2f4b332e

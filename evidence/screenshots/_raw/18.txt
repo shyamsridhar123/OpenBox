@@ -1,0 +1,5 @@
+{
+  "privateIp": "10.10.10.4",
+  "sku": "Premium",
+  "state": "Succeeded"
+}

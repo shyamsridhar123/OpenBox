@@ -1,0 +1,5 @@
+{
+  "privateEndpoints": 1,
+  "publicNetworkAccess": "Disabled",
+  "sku": "Premium"
+}

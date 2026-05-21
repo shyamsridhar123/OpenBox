@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "observability": {
+    "enabled": true
+  },
+  "security": {
+    "advancedNetworkPolicies": "FQDN",
+    "enabled": true
+  }
+}

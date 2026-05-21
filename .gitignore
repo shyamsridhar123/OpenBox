@@ -75,8 +75,14 @@ local.settings.json
 infra/bicep/parameters/*.local.parameters.json
 infra/bicep/parameters/prod.parameters.json
 
-# Evidence / run output (we'll selectively force-add specific files later)
-evidence/runs/
+# Evidence / run output: we DO ship the curated subdirectory at
+# evidence/runs/finish/ (runbooks, AC checklist, final report, live-results,
+# E2E test scripts and logs). Everything else under evidence/runs/ is local
+# scratch and stays ignored. The specific secret files inside
+# evidence/runs/finish/ are explicitly listed in the "Secrets that must never
+# be committed" block lower in this file.
+evidence/runs/*
+!evidence/runs/finish/
 evidence/screenshots-raw/
 *.tar.gz
 *.zip
@@ -87,3 +93,10 @@ logs/
 
 # AZ CLI cache leaks
 .azure/
+
+# Secrets that must never be committed
+evidence/runs/finish/.opensandbox-api-key
+evidence/runs/finish/aca-kubeconfig/sa.token
+evidence/runs/finish/aca-kubeconfig/kubeconfig.yaml
+evidence/runs/finish/aca-kubeconfig/ca.crt.b64
+evidence/runs/finish/aca-kubeconfig/ca-current.yaml

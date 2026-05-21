@@ -59,9 +59,90 @@ resource firewallPolicy 'Microsoft.Network/firewallPolicies@2023-11-01' = {
 // Rule Collection Group — Sandbox Egress Allowlist
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// AKS bootstrap rule collection group — priority 100 (higher than sandbox 200)
+//
+// This is REQUIRED before attaching the UDR to snet-kata, otherwise AKS
+// node provisioning silently dies during CSE (Custom Script Extension):
+// the kubelet's bootstrap must reach mcr.microsoft.com, packages.aks.azure.com,
+// the AKS control-plane public endpoints, and a few Azure Linux package hosts.
+// Without these rules, every node OS-provisions but fails its extension
+// install, AKS rolls the instance, and the cluster stays in Creating forever
+// (observed in deploys 003/004/005, see evidence/runs/finish/fw-failure-trace.md).
+//
+// Priority 100 ensures these rules evaluate before the priority-200 sandbox
+// rule collection, and the deny-all in rc-sandbox-deny-other (priority 300)
+// only ever sees Kata workload traffic, never node-level bootstrap.
+// ---------------------------------------------------------------------------
+resource aksBootstrapRcg 'Microsoft.Network/firewallPolicies/ruleCollectionGroups@2023-11-01' = {
+  parent: firewallPolicy
+  name: 'rcg-aks-bootstrap'
+  properties: {
+    priority: 100
+    ruleCollections: [
+      {
+        ruleCollectionType: 'FirewallPolicyFilterRuleCollection'
+        name: 'rc-aks-app'
+        priority: 100
+        action: { type: 'Allow' }
+        rules: [
+          {
+            ruleType: 'ApplicationRule'
+            name: 'allow-aks-fqdn-tag'
+            // The AzureKubernetesService FQDN tag is the supported Microsoft
+            // shortcut that covers mcr.microsoft.com, *.tun.<region>.azmk8s.io,
+            // packages.aks.azure.com, login.microsoftonline.com, and the rest
+            // of the AKS managed-control-plane fanout. Using the tag means we
+            // don't have to chase moving FQDN lists.
+            protocols: [{ protocolType: 'Https', port: 443 }]
+            fqdnTags: ['AzureKubernetesService']
+            sourceAddresses: ['10.10.1.0/24', '10.10.2.0/23']
+          }
+          {
+            ruleType: 'ApplicationRule'
+            name: 'allow-azure-linux-packages'
+            protocols: [
+              { protocolType: 'Http', port: 80 }
+              { protocolType: 'Https', port: 443 }
+            ]
+            targetFqdns: [
+              '*.azurelinux.microsoft.com'
+              'packages.microsoft.com'
+              'security.azurelinux.microsoft.com'
+            ]
+            sourceAddresses: ['10.10.1.0/24', '10.10.2.0/23']
+          }
+          {
+            ruleType: 'ApplicationRule'
+            name: 'allow-acr-pulls'
+            // Bootstrap pulls of our control-plane images from ACR — the data
+            // plane uses Private Link via FINISH-5, but in case Private Link
+            // DNS resolution hasn't propagated yet, the public FQDN must work
+            // until the cutover completes.
+            protocols: [{ protocolType: 'Https', port: 443 }]
+            targetFqdns: [
+              '*.azurecr.io'
+              '*.data.azurecr.io'
+            ]
+            sourceAddresses: ['10.10.1.0/24', '10.10.2.0/23']
+          }
+        ]
+      }
+    ]
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sandbox workload egress rule collection group
+// ---------------------------------------------------------------------------
+
 resource sandboxEgressRcg 'Microsoft.Network/firewallPolicies/ruleCollectionGroups@2023-11-01' = {
   parent: firewallPolicy
   name: 'rcg-sandbox-egress'
+  // Ensure AKS bootstrap rules deploy first; otherwise during a green-field
+  // 'az deployment sub create' the FW policy can briefly come up without
+  // any allow rules at all, which races AKS node bootstrap.
+  dependsOn: [aksBootstrapRcg]
   properties: {
     priority: 200
     ruleCollections: egressEnforcementTier == 'premium'

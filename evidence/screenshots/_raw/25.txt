@@ -1,0 +1,5 @@
+Name                          Location    ResourceGroup       Fqdn
+----------------------------  ----------  ------------------  -------------------------------------------------------------------------------------------
+ca-portalfe-opensandbox-dev   East US 2   rg-opensandbox-dev  ca-portalfe-opensandbox-dev.thankfulmeadow-1facd426.eastus2.azurecontainerapps.io
+ca-ctrl-opensandbox-dev       East US 2   rg-opensandbox-dev  ca-ctrl-opensandbox-dev.internal.thankfulmeadow-1facd426.eastus2.azurecontainerapps.io
+ca-portalapi-opensandbox-dev  East US 2   rg-opensandbox-dev  ca-portalapi-opensandbox-dev.internal.thankfulmeadow-1facd426.eastus2.azurecontainerapps.io

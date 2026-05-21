@@ -1,0 +1,17 @@
+=== kernel ===
+Linux kata-smoke 6.6.96.mshv1-3.azl3 #1 SMP Wed Feb  4 04:41:10 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+=== /proc/1/cgroup ===
+0::/
+=== hypervisor evidence (dmesg) ===
+=== virtualization status ===
+bios_date
+bios_vendor
+bios_version
+modalias
+product_family
+Cloud Hypervisor
+cloud-hypervisor
+=== cpuinfo flags head ===
+power management:
+
+=== Hello from Kata ===

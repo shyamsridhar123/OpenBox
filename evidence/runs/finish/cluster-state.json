@@ -1,0 +1,34 @@
+{
+  "acns": null,
+  "name": "aks-opensandbox-dev",
+  "oidc": "https://eastus2.oic.prod-aks.azure.com/16b3c013-d300-468d-ac64-7eda0820b6d3/6de70b0b-4596-47ba-8a7a-3ef8e657f658/",
+  "pools": [
+    {
+      "count": 3,
+      "kataIsolated": "false",
+      "name": "nodepool1",
+      "osSKU": null,
+      "runtime": null,
+      "vmSize": "Standard_D4ds_v5",
+      "zones": [
+        "2",
+        "3"
+      ]
+    },
+    {
+      "count": 2,
+      "kataIsolated": "false",
+      "name": "kata",
+      "osSKU": null,
+      "runtime": "KataVmIsolation",
+      "vmSize": "Standard_D8ds_v5",
+      "zones": [
+        "2",
+        "3"
+      ]
+    }
+  ],
+  "state": "Succeeded",
+  "version": "1.34",
+  "wi": true
+}
