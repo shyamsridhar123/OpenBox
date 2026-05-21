@@ -7,10 +7,7 @@ running Kata-isolated pod, execute code, and read results.
 
 Everything in this repo describes the Azure landing zone — the AKS cluster, Kata node pool,
 ACR Premium with private endpoint, Azure Firewall egress, Event Hubs/Stream Analytics audit
-pipeline, Workload Identity, ACA control plane, and the deployment IaC. The sandbox runtime
-itself (controller, server, `execd`) is consumed unchanged from a third-party project vendored
-under [`third_party/opensandbox/`](third_party/opensandbox/) — see the Acknowledgement at the
-bottom of this file for attribution and license.
+pipeline, Workload Identity, ACA control plane, and the deployment IaC.
 
 ## Why this exists — motivation & philosophy
 
