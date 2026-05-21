@@ -67,6 +67,10 @@ desktop.ini
 *.key
 *.pfx
 *.p12
+
+# OpenSandbox server API key — plaintext local-only secret pulled from cluster.
+# Materialized by: kubectl -n opensandbox-system get secret opensandbox-api-key ...
+examples/.opensandbox-api-key
 azureauth.json
 credentials.json
 local.settings.json
