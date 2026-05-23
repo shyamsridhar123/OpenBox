@@ -4,7 +4,10 @@
 .omc/state/
 .omc/drafts/
 .remember/
-.claude/
+# Track settings and hooks; ignore only session-local Claude data
+.claude/transcripts/
+.claude/todos/
+.claude/cache/
 
 # Sub-agent task output files (JSONL transcripts; can contain large traces)
 *.output
