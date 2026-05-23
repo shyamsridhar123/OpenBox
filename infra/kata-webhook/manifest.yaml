@@ -1,0 +1,144 @@
+# Kata Webhook — manifest.yaml
+# Apply after running generate-certs.sh and substituting CA_BUNDLE.
+#
+# Usage:
+#   CA_BUNDLE=$(base64 < certs/ca.crt | tr -d '\n')
+#   sed "s|__CA_BUNDLE__|$CA_BUNDLE|g" manifest.yaml | kubectl apply -f -
+#
+# NOTE: Namespace opensandbox-system is assumed to exist (created by cluster bootstrap).
+# NOTE: Namespace opensandbox is assumed to exist (created by OpenSandbox controller).
+---
+# ── TLS Secret ────────────────────────────────────────────────────────────────
+# Pre-populate with base64-encoded cert/key. Replace values with real certs.
+# The generate-certs.sh script prints the base64 values.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kata-webhook-tls
+  namespace: opensandbox-system
+type: kubernetes.io/tls
+data:
+  # Replace with: base64 < tls.crt | tr -d '\n'
+  tls.crt: __TLS_CRT__
+  # Replace with: base64 < tls.key | tr -d '\n'
+  tls.key: __TLS_KEY__
+---
+# ── Deployment ────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kata-webhook
+  namespace: opensandbox-system
+  labels:
+    app: kata-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kata-webhook
+  template:
+    metadata:
+      labels:
+        app: kata-webhook
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: webhook
+          image: acropensandboxdemo7075.azurecr.io/kata-webhook:dev
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8443
+              name: https
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: certs
+              mountPath: /certs
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+      volumes:
+        - name: certs
+          secret:
+            secretName: kata-webhook-tls
+---
+# ── Service ───────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: kata-webhook
+  namespace: opensandbox-system
+  labels:
+    app: kata-webhook
+spec:
+  selector:
+    app: kata-webhook
+  ports:
+    - name: https
+      port: 443
+      targetPort: 8443
+  type: ClusterIP
+---
+# ── MutatingWebhookConfiguration ─────────────────────────────────────────────
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: kata-runtime-mutator
+webhooks:
+  - name: kata-runtime-mutator.opensandbox.io
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Ignore
+    matchPolicy: Equivalent
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+            - opensandbox
+    # Exclude pool-managed pre-warmed pods (label pool=<name>)
+    objectSelector:
+      matchExpressions:
+        - key: pool
+          operator: DoesNotExist
+    rules:
+      - apiGroups:   [""]
+        apiVersions: ["v1"]
+        resources:   ["pods"]
+        operations:  ["CREATE"]
+        scope:       "Namespaced"
+    clientConfig:
+      service:
+        name:      kata-webhook
+        namespace: opensandbox-system
+        path:      /mutate
+        port:      443
+      # Replace with: base64 < ca.crt | tr -d '\n'
+      caBundle: __CA_BUNDLE__

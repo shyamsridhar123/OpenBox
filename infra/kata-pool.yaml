@@ -1,0 +1,57 @@
+apiVersion: sandbox.opensandbox.io/v1alpha1
+kind: Pool
+metadata:
+  name: kata
+  namespace: opensandbox
+spec:
+  template:
+    metadata:
+      labels:
+        sandbox.opensandbox.io/pool: kata
+    spec:
+      runtimeClassName: kata-vm-isolation
+      nodeSelector:
+        sandbox.io/runtime: kata
+      tolerations:
+        - key: runtime
+          operator: Equal
+          value: kata
+          effect: NoSchedule
+      initContainers:
+        - name: execd-installer
+          image: acropensandboxdemo7075.azurecr.io/opensandbox/execd:v1.0.8
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cp ./execd /opt/opensandbox/bin/execd &&
+              cp ./bootstrap.sh /opt/opensandbox/bin/bootstrap.sh &&
+              chmod +x /opt/opensandbox/bin/execd &&
+              chmod +x /opt/opensandbox/bin/bootstrap.sh
+          volumeMounts:
+            - name: opensandbox-bin
+              mountPath: /opt/opensandbox/bin
+      containers:
+        - name: sandbox
+          image: acropensandboxdemo7075.azurecr.io/sandbox/vscode:latest
+          command: ["/opt/opensandbox/bin/bootstrap.sh", "sleep", "infinity"]
+          env:
+            - name: EXECD
+              value: /opt/opensandbox/bin/execd
+          volumeMounts:
+            - name: opensandbox-bin
+              mountPath: /opt/opensandbox/bin
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+      volumes:
+        - name: opensandbox-bin
+          emptyDir: {}
+  capacitySpec:
+    bufferMin: 2
+    bufferMax: 4
+    poolMin: 2
+    poolMax: 10
