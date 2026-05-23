@@ -44,7 +44,13 @@ from opensandbox.config import ConnectionConfig  # type: ignore[import-not-found
 # ---- Config ---------------------------------------------------------------
 
 N_HYPOTHESES = int(os.environ.get("N_HYPOTHESES", "20"))
-SANDBOX_IMAGE = "python:3.12-slim"
+# Default to the ACR-resident copy because Kata nodes can't reach docker.io
+# (egress policy). Override with SANDBOX_IMAGE=python:3.12-slim if you ever
+# move this to a cluster with open egress.
+SANDBOX_IMAGE = os.environ.get(
+    "SANDBOX_IMAGE",
+    "acropensandboxdemo7075.azurecr.io/python:3.12-slim",
+)
 DOMAIN = "localhost:18080"
 KIMI_ENDPOINT = "https://aihubeastus26267492086.cognitiveservices.azure.com"
 KIMI_DEPLOYMENTS = ["Kimi-K2.5", "Kimi-K2.6"]
