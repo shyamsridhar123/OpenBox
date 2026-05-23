@@ -22,4 +22,7 @@ cd sdks/js
 npm install --silent
 cd "$CLAUDE_PROJECT_DIR"
 
+echo "==> Installing caveman skill..."
+curl -fsSL https://raw.githubusercontent.com/JuliusBrussee/caveman/main/install.sh | bash
+
 echo "==> Session setup complete."
