@@ -25,9 +25,4 @@ cd "$CLAUDE_PROJECT_DIR"
 echo "==> Installing caveman skill..."
 curl -fsSL https://raw.githubusercontent.com/JuliusBrussee/caveman/main/install.sh | bash
 
-echo "==> Wiring caveman slash commands..."
-mkdir -p ~/.claude/commands
-find ~/.claude/plugins/cache/caveman -name "*.toml" -path "*/commands/*" \
-  -exec cp {} ~/.claude/commands/ \;
-
 echo "==> Session setup complete."
