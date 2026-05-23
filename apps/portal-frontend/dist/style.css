@@ -1,0 +1,97 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d0d0f;
+  --surface: #16171a;
+  --border: #2a2b30;
+  --text: #e2e4ea;
+  --dim: #6b7280;
+  --accent: #6366f1;
+  --green: #22c55e;
+  --yellow: #eab308;
+  --red: #ef4444;
+  --gray: #4b5563;
+  --mono: "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
+  --sans: Inter, system-ui, -apple-system, sans-serif;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; }
+
+/* ── Header ── */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 24px; border-bottom: 1px solid var(--border);
+  background: var(--surface); position: sticky; top: 0; z-index: 10;
+}
+.header-left { display: flex; align-items: center; gap: 10px; }
+.logo { font-size: 22px; color: var(--accent); }
+h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.02em; }
+h1 .dim { color: var(--dim); font-weight: 400; }
+
+/* ── Summary chips ── */
+.summary-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  background: #1e1f24; border: 1px solid var(--border); color: var(--dim);
+}
+.chip strong { color: var(--text); }
+.chip.accent { border-color: var(--accent); color: var(--accent); }
+.chip.running { border-color: var(--green); color: var(--green); }
+.chip.pending { border-color: var(--yellow); color: var(--yellow); }
+.chip.error { border-color: var(--red); color: var(--red); }
+
+/* ── Main ── */
+main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+.section-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+}
+h2 { font-size: 14px; font-weight: 600; }
+.refresh-label { font-size: 11px; color: var(--dim); }
+
+/* ── Table ── */
+table { width: 100%; border-collapse: collapse; }
+thead { position: sticky; top: 57px; background: var(--surface); z-index: 5; }
+th {
+  text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim);
+  border-bottom: 1px solid var(--border);
+}
+td { padding: 9px 12px; border-bottom: 1px solid #1c1d21; vertical-align: middle; }
+tr:hover td { background: #1a1b1f; }
+
+.mono { font-family: var(--mono); font-size: 12px; }
+.small { font-size: 12px; }
+.dim { color: var(--dim); }
+
+/* ── Status ── */
+.status {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.status-running { background: #14271e; color: var(--green); }
+.status-pending { background: #26220e; color: var(--yellow); }
+.status-failed, .status-error { background: #27110e; color: var(--red); }
+.status-unknown, .status- { background: #1e1f24; color: var(--dim); }
+
+/* ── Pool badges ── */
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.badge-kata { background: #12223a; color: #60a5fa; border: 1px solid #1e3a5f; }
+.badge-system { background: #1e1f24; color: #9ca3af; border: 1px solid var(--border); }
+.badge-unknown { background: #27110e; color: var(--red); border: 1px solid #3f1a15; }
+
+/* ── States ── */
+.loading, .empty { padding: 32px; text-align: center; color: var(--dim); font-size: 13px; }
+.error-banner {
+  margin: 8px 0; padding: 12px 16px; border-radius: 6px;
+  background: #27110e; border: 1px solid #5c1a14; color: #fca5a5; font-size: 13px;
+}
+
+/* ── Footer ── */
+footer {
+  padding: 12px 24px; border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--dim); text-align: right;
+}

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DarkForge Command Center</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <span class="logo">&#9874;</span>
+      <h1>DarkForge <span class="dim">Command Center</span></h1>
+    </div>
+    <div class="summary-chips" id="summary-chips">
+      <span class="chip">Loading&hellip;</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="section-header">
+      <h2>Sandboxes</h2>
+      <span class="refresh-label" id="refresh-label">Refreshing every 5s</span>
+    </div>
+
+    <div id="error-banner"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Status</th>
+          <th>Pod</th>
+          <th>Node</th>
+          <th>Runtime</th>
+          <th>Pool</th>
+          <th>Age</th>
+        </tr>
+      </thead>
+      <tbody id="sandbox-rows">
+        <tr><td colspan="7" class="loading">Loading sandboxes&hellip;</td></tr>
+      </tbody>
+    </table>
+  </main>
+
+  <footer>
+    <span id="footer-text">Last refreshed: &mdash;</span>
+  </footer>
+
+  <script>
+    // Pure DOM API, no innerHTML. Defends against XSS and the security hook.
+    function el(tag, opts) {
+      const e = document.createElement(tag);
+      if (opts) {
+        if (opts.text !== undefined) e.textContent = opts.text;
+        if (opts.cls) e.className = opts.cls;
+        if (opts.colspan) e.colSpan = opts.colspan;
+      }
+      return e;
+    }
+
+    function formatAge(s) {
+      if (s == null || s < 0) return "—";
+      if (s < 60) return s + "s";
+      if (s < 3600) return Math.floor(s / 60) + "m " + (s % 60) + "s";
+      return Math.floor(s / 3600) + "h " + Math.floor((s % 3600) / 60) + "m";
+    }
+
+    function truncate(str, n) {
+      if (!str) return "";
+      return str.length > n ? str.substring(0, n) + "…" : str;
+    }
+
+    function clearChildren(node) {
+      while (node.firstChild) node.removeChild(node.firstChild);
+    }
+
+    async function fetchJson(url) {
+      try {
+        const r = await fetch(url, { cache: "no-store" });
+        if (!r.ok) return { error: "HTTP " + r.status };
+        return await r.json();
+      } catch (err) {
+        return { error: String(err) };
+      }
+    }
+
+    async function refresh() {
+      // ─── Summary chips ───
+      const sum = await fetchJson("/api/cluster/summary");
+      const chips = document.getElementById("summary-chips");
+      clearChildren(chips);
+
+      if (sum.error) {
+        const c = el("span", { cls: "chip error", text: "API: " + sum.error });
+        chips.appendChild(c);
+      } else {
+        const items = [
+          { cls: "chip accent", k: "Kata nodes", v: sum.nodes && sum.nodes.kata },
+          { cls: "chip", k: "System nodes", v: sum.nodes && sum.nodes.system },
+          { cls: "chip", k: "Sandboxes", v: sum.sandboxes && sum.sandboxes.total },
+          { cls: "chip running", k: "Running", v: sum.sandboxes && sum.sandboxes.running },
+          { cls: "chip pending", k: "Pending", v: sum.sandboxes && sum.sandboxes.pending },
+          { cls: "chip accent", k: "On Kata", v: sum.sandboxes && sum.sandboxes.kata_pods },
+        ];
+        for (const it of items) {
+          const chip = el("span", { cls: it.cls });
+          chip.appendChild(document.createTextNode(it.k + " "));
+          const strong = el("strong", { text: String(it.v ?? "—") });
+          chip.appendChild(strong);
+          chips.appendChild(chip);
+        }
+      }
+
+      // ─── Error banner ───
+      const banner = document.getElementById("error-banner");
+      clearChildren(banner);
+
+      // ─── Sandbox rows ───
+      const data = await fetchJson("/api/sandboxes");
+      const tbody = document.getElementById("sandbox-rows");
+      clearChildren(tbody);
+
+      let rows = data;
+      if (data && data.error) {
+        const div = el("div", { cls: "error-banner", text: "Control plane: " + data.error });
+        banner.appendChild(div);
+        rows = data.sandboxes || [];
+      }
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        const tr = el("tr");
+        const td = el("td", { cls: "empty", colspan: 7, text: "No sandboxes." });
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      } else {
+        for (const sb of rows) {
+          const tr = el("tr");
+
+          tr.appendChild(el("td", { cls: "mono small", text: truncate(sb.id || "", 12) }));
+
+          const stTd = el("td");
+          const st = el("span", {
+            cls: "status status-" + String(sb.status || "unknown").toLowerCase(),
+            text: sb.status || "—",
+          });
+          stTd.appendChild(st);
+          tr.appendChild(stTd);
+
+          tr.appendChild(el("td", { cls: "mono small", text: truncate(sb.pod_name || "", 24) }));
+          tr.appendChild(el("td", { cls: "mono small", text: truncate(sb.node_name || "—", 32) }));
+          tr.appendChild(el("td", { cls: "mono small dim", text: sb.runtime_class || "—" }));
+
+          const poolTd = el("td");
+          const pool = String(sb.node_pool || "unknown").toLowerCase();
+          const badge = el("span", { cls: "badge badge-" + pool, text: pool });
+          poolTd.appendChild(badge);
+          tr.appendChild(poolTd);
+
+          tr.appendChild(el("td", { cls: "small dim", text: formatAge(sb.age_seconds) }));
+          tbody.appendChild(tr);
+        }
+      }
+
+      // ─── Footer ───
+      const now = new Date().toISOString().substring(11, 19);
+      document.getElementById("footer-text").textContent = "Last refreshed: " + now + " UTC";
+    }
+
+    refresh();
+    setInterval(refresh, 5000);
+  </script>
+</body>
+</html>
