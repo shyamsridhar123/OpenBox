@@ -103,3 +103,12 @@ logs/
 
 # AZ CLI cache leaks
 .azure/
+
+# Swarm-specific venv (not matched by **/.venv/)
+.venv-swarm/
+
+# Claude Code skill scheduler artifact
+.claude/scheduled_tasks.lock
+
+# Executor verification leftovers
+*.err
