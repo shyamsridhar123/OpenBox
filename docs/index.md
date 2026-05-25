@@ -17,9 +17,15 @@ Top-level entry point for the DarkForge documentation.
 - [acceptance-checklist.md](acceptance-checklist.md) — the 34 acceptance criteria for v1.
 - [mission-and-architecture.md](mission-and-architecture.md) — original design narrative.
 
+## Portal (dev)
+
+- **[../apps/portal-api/README.md](../apps/portal-api/README.md)** — FastAPI dev portal: 24 routes covering cluster lifecycle, swarm runs (SSE), sandbox CRUD, sandbox-exec (chart-in-browser), Kimi chat (K2.6 default), Pool CR, events.
+- **[../apps/portal-frontend/README.md](../apps/portal-frontend/README.md)** — Alpine.js single-page command center, 6 cards.
+- **[PORTAL-AUTH.md](PORTAL-AUTH.md)** — DEV-MODE auth model and the 6-step prod migration checklist (Workload Identity, Entra RBAC, Key Vault CSI).
+
 ## Demos and runbooks
 
-- [examples/](../examples/) — runnable demo scripts (laptop SDK, Kimi agentic app).
+- [examples/](../examples/) — runnable demo scripts: `sdk_e2e.py`, `kimi_via_osb.py`, `hypothesis_swarm.py`, `run_in_sandbox.py` (the portal's exec backend).
 - [runbooks/](../runbooks/) — ops runbooks (IR, onboarding, CVE response, DR drill).
 
 ## Vendored runtime

@@ -186,6 +186,7 @@ az aks get-credentials -g rg-opensandbox-dev -n aks-opensandbox-dev --overwrite-
 pip install opensandbox
 
 # 2. Port-forward the sandbox server to localhost:18080
+#    (service exposes port 80 — NOT 8080)
 kubectl -n opensandbox-system port-forward svc/opensandbox-server 18080:80 &
 
 # 3. Drop the server API key into examples/ for the demo scripts to read
@@ -198,6 +199,13 @@ python examples/sdk_e2e.py
 # 4b. Run the Kimi agentic demo
 #     (requires az login with access to aihubeastus26267492086)
 python examples/kimi_via_osb.py
+
+# 4c. Or drive everything from the dev portal — cluster lifecycle, swarm runs,
+#     sandbox create, Kimi chat, chart-in-browser demo, observability.
+#     (uses the port-forward + key file from steps 2 & 3.)
+cd apps/portal-api
+uv sync && uv run uvicorn app.main:app --port 8090
+# then open http://localhost:8090
 ```
 
 ## Repository layout
@@ -207,7 +215,7 @@ python examples/kimi_via_osb.py
 | [`third_party/opensandbox/`](third_party/opensandbox/) | Third-party sandbox runtime, vendored. Do not edit; sync via the upstream-sync workflow. |
 | [`infra/bicep/`](infra/bicep/) | Subscription-scope Bicep for the Azure landing zone (cluster, ACR, firewall, audit). |
 | [`infra/helm/opensandbox/`](infra/helm/opensandbox/) | Helm chart deploying the sandbox runtime images (controller, server, execd) with Azure-specific values. |
-| [`apps/`](apps/) | Control-plane services on ACA. `apps/control-plane/` is implemented (FastAPI). `apps/portal-api/` and `apps/portal-frontend/` are scaffolds — ACA revisions provisioned, no source yet. See [ROADMAP.md](ROADMAP.md) and OSEP-0006 (`third_party/opensandbox/oseps/0006-developer-console.md`). |
+| [`apps/`](apps/) | `apps/control-plane/` — initial FastAPI control plane on ACA. `apps/portal-api/` — dev portal (FastAPI, 24 routes) joining the in-cluster control plane, Kimi chat, swarm runner, cluster lifecycle, and observability into one local surface. `apps/portal-frontend/dist/` — Alpine.js single-page command center served by portal-api at `http://localhost:8090`. See [`apps/portal-api/README.md`](apps/portal-api/README.md), [`docs/PORTAL-AUTH.md`](docs/PORTAL-AUTH.md), and [ROADMAP.md](ROADMAP.md). |
 | [`sdks/`](sdks/) | Azure-flavored SDK wrappers and examples. |
 | [`examples/`](examples/) | Runnable demos: laptop SDK, Kimi agentic app, hypothesis swarm. See [`docs/DEMO-HYPOTHESIS-SWARM.md`](docs/DEMO-HYPOTHESIS-SWARM.md). |
 | [`docs/`](docs/) | This documentation set. |
