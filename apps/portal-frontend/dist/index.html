@@ -194,8 +194,33 @@
               <template x-if="msg.role === 'assistant' && !msg.busy && extractCode(msg.content)">
                 <button class="btn ghost small" x-on:click="runInSandbox(extractCode(msg.content))">&#9654; Run in sandbox</button>
               </template>
+              <template x-if="msg.exec">
+                <div class="exec-result" :class="msg.exec.running ? 'exec-running' : (msg.exec.error || msg.exec.exit_code !== 0 ? 'exec-failed' : 'exec-ok')">
+                  <div class="exec-header">
+                    <span class="exec-status" x-text="msg.exec.running ? 'running…' : (msg.exec.error ? 'error' : 'exit=' + (msg.exec.exit_code ?? '?'))">—</span>
+                    <span class="dim small" x-show="!msg.exec.running" x-text="msg.exec.duration_s ? msg.exec.duration_s + 's' : ''">—</span>
+                    <span class="dim small mono" x-show="msg.exec.sandbox_id" x-text="'sb=' + (msg.exec.sandbox_id || '').slice(0,8)">—</span>
+                  </div>
+                  <template x-if="msg.exec.chart_b64">
+                    <img class="exec-chart-img" :src="'data:image/png;base64,' + (msg.exec.chart_b64 || '')" alt="chart from sandbox">
+                  </template>
+                  <template x-if="msg.exec.stdout">
+                    <pre class="exec-stdout" x-text="msg.exec.stdout">—</pre>
+                  </template>
+                  <template x-if="msg.exec.stderr">
+                    <pre class="exec-stderr" x-text="msg.exec.stderr">—</pre>
+                  </template>
+                  <template x-if="msg.exec.error">
+                    <pre class="exec-stderr" x-text="msg.exec.error">—</pre>
+                  </template>
+                </div>
+              </template>
             </div>
           </template>
+        </div>
+        <div class="chat-demo-row">
+          <button class="btn ghost small" x-on:click="demoChartPrompt()">📊 Demo: plot sin/cos</button>
+          <span class="dim small">Click → Send → 'Run in sandbox'</span>
         </div>
         <div class="chat-input-row">
           <textarea

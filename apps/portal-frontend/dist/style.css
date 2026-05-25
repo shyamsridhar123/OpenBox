@@ -335,3 +335,47 @@ main.grid {
 .chat-input-row { display: flex; gap: 8px; margin-top: 8px; align-items: flex-end; }
 .chat-textarea { resize: none; flex: 1; font-size: 13px; font-family: var(--sans); }
 
+/* ── Step 16: Code Interpreter exec result ──────────────────────── */
+.exec-result {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.03);
+  border-left: 3px solid var(--border, #444);
+}
+.exec-result.exec-running { border-left-color: var(--accent, #6cf); }
+.exec-result.exec-ok      { border-left-color: #4ade80; }
+.exec-result.exec-failed  { border-left-color: #f87171; }
+.exec-header {
+  display: flex; gap: 10px; align-items: baseline; margin-bottom: 6px;
+}
+.exec-status {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.exec-chart-img {
+  display: block;
+  max-width: 100%;
+  margin: 6px 0;
+  border-radius: 4px;
+  background: #fff;
+}
+.exec-stdout, .exec-stderr {
+  max-height: 200px;
+  overflow: auto;
+  padding: 6px 8px;
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(0,0,0,0.25);
+  border-radius: 4px;
+}
+.exec-stderr { color: #f87171; }
+.chat-demo-row {
+  display: flex; gap: 10px; align-items: center; margin: 4px 0 6px 0;
+}
+

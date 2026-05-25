@@ -47,6 +47,8 @@ function formatAge(s) {
   return Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm';
 }
 
+function dataUri(b64) { return 'data:image/png;base64,' + (b64 || ''); }
+
 function truncate(s, n) {
   if (!s) return '';
   return s.length > n ? s.substring(0, n) + '...' : s;
@@ -334,13 +336,43 @@ function chatPanel() {
     },
     runInSandbox: async function (code) {
       if (!code) return;
-      showToast('Submitting code to sandbox...', 'info');
-      var resp = await postJson('/api/sandboxes', {
-        image: 'acropensandboxdemo7075.azurecr.io/python:3.12-slim',
-        timeout: 60, entrypoint: ['python3', '-c', code], env: {}
+      // Scroll to bottom so result will be visible
+      requestAnimationFrame(function () {
+        var c = document.getElementById('chat-messages');
+        if (c) c.scrollTop = c.scrollHeight;
       });
-      if (resp.error) { showToast(resp.error, 'error'); return; }
-      showToast('Submitted: ' + (resp.id || resp.sandbox_id || 'see table'), 'success');
+      // Find the last assistant message whose content contains this code snippet
+      var target = null;
+      for (var i = this.messages.length - 1; i >= 0; i--) {
+        if (this.messages[i].role === 'assistant' && (this.messages[i].content || '').indexOf(code) !== -1) {
+          target = this.messages[i];
+          break;
+        }
+      }
+      if (target) {
+        target.exec = { running: true };
+        this.messages = this.messages.slice(); // trigger Alpine reactivity
+      }
+      showToast('Running in sandbox…', 'info');
+      var resp = await postJson('/api/sandbox/exec', { code: code, timeout_s: 90 });
+      if (target) {
+        target.exec = Object.assign({ running: false }, resp);
+        this.messages = this.messages.slice(); // trigger Alpine reactivity
+      }
+      if (resp.error) {
+        showToast('✗ exec failed: ' + resp.error, 'error');
+      } else if (resp.exit_code !== 0) {
+        showToast('✗ exec failed: exit=' + resp.exit_code, 'error');
+      } else {
+        showToast('✓ exec done', 'success');
+      }
+      requestAnimationFrame(function () {
+        var c = document.getElementById('chat-messages');
+        if (c) c.scrollTop = c.scrollHeight;
+      });
+    },
+    demoChartPrompt: function () {
+      this.input = "Write a Python snippet that uses matplotlib to plot sin(x) and cos(x) from 0 to 4π on the same axes, with a legend, title 'Demo: sin & cos', and grid. Just the code in a python fenced block — no explanation.";
     }
   };
 }
