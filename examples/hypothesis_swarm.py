@@ -17,7 +17,7 @@ Why this is interesting:
       "just reset .items in add()" patch.
 
 Run:
-    kubectl -n opensandbox-system port-forward svc/opensandbox-server 18080:8080 &
+    kubectl -n opensandbox-system port-forward svc/opensandbox-server 18080:80 &
     az login                       # so we can get an AAD token
     export AAD_TOKEN=$(az account get-access-token \
         --resource https://cognitiveservices.azure.com \
@@ -53,7 +53,7 @@ SANDBOX_IMAGE = os.environ.get(
 )
 DOMAIN = "localhost:18080"
 KIMI_ENDPOINT = "https://aihubeastus26267492086.cognitiveservices.azure.com"
-KIMI_DEPLOYMENTS = ["Kimi-K2.5", "Kimi-K2.6"]
+KIMI_DEPLOYMENTS = ["Kimi-K2.6", "Kimi-K2.5"]
 
 THIS = Path(__file__).resolve().parent
 API_KEY_FILE = THIS / ".opensandbox-api-key"

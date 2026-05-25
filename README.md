@@ -186,7 +186,7 @@ az aks get-credentials -g rg-opensandbox-dev -n aks-opensandbox-dev --overwrite-
 pip install opensandbox
 
 # 2. Port-forward the sandbox server to localhost:18080
-kubectl -n opensandbox-system port-forward svc/opensandbox-server 18080:8080 &
+kubectl -n opensandbox-system port-forward svc/opensandbox-server 18080:80 &
 
 # 3. Drop the server API key into examples/ for the demo scripts to read
 kubectl -n opensandbox-system get secret opensandbox-server -o jsonpath='{.data.OPENSANDBOX_SERVER_API_KEY}' \

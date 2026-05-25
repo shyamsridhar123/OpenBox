@@ -138,7 +138,7 @@ From your laptop you cannot dial `opensandbox-server` directly — its Service i
 ClusterIP only. Port-forward:
 
 ```bash
-kubectl -n opensandbox port-forward svc/opensandbox-server 18080:8080
+kubectl -n opensandbox port-forward svc/opensandbox-server 18080:80
 ```
 
 Leave this running in its own terminal. Everything that follows assumes
@@ -785,7 +785,7 @@ kubectl logs -n <ns> <sandbox-pod> -c execd
 
 ### 11.1 Local
 
-- Transport: `kubectl port-forward svc/opensandbox-server 18080:8080`
+- Transport: `kubectl port-forward svc/opensandbox-server 18080:80`
 - `protocol="http"`, `domain="localhost:18080"`.
 - Auth: shared API key from the cluster secret + your `az login` for Foundry.
 
