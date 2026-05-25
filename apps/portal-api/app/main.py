@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+import tempfile
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -351,6 +354,76 @@ async def delete_sandbox(sandbox_id: str) -> Any:
 
 
 # ── end Sandbox CRUD (Step 4) ──
+
+
+# ── Sandbox exec (Step 16 — Code Interpreter) ──
+
+class SandboxExecRequest(BaseModel):
+    code: str
+    image: str | None = None
+    timeout_s: int = 90
+
+    @field_validator("timeout_s")
+    @classmethod
+    def _validate_timeout_s(cls, v: int) -> int:
+        return max(5, min(v, 300))
+
+
+@app.post("/api/sandbox/exec")
+async def sandbox_exec(req: SandboxExecRequest) -> Any:
+    """Run a Python snippet in a fresh Kata sandbox; returns stdout/stderr/chart_b64."""
+    helper = Path(__file__).parent.parent.parent.parent / "examples" / "run_in_sandbox.py"
+    timeout_s = req.timeout_s
+    outer_cap = timeout_s + 30
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w", encoding="utf-8")
+    try:
+        tmp.write(req.code)
+        tmp.close()
+
+        env = os.environ.copy()
+        env["SNIPPET_PATH"] = tmp.name
+        env["SANDBOX_IMAGE"] = req.image or settings.SWARM_DEFAULT_IMAGE
+        env["EXEC_TIMEOUT_S"] = str(timeout_s)
+        env["OPENSANDBOX_DOMAIN"] = "localhost:18080"
+        env["PYTHONUNBUFFERED"] = "1"
+
+        proc = await asyncio.create_subprocess_exec(
+            str(settings.SWARM_VENV_PYTHON),
+            str(helper),
+            env=env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        try:
+            raw_out, raw_err = await asyncio.wait_for(
+                proc.communicate(), timeout=float(outer_cap)
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.communicate()
+            return {"error": "subprocess timeout"}
+
+        if raw_err:
+            logger.info("sandbox_exec stderr: %s", raw_err.decode(errors="replace"))
+
+        lines = [ln for ln in raw_out.decode(errors="replace").splitlines() if ln.strip()]
+        if not lines:
+            return {"error": "runner produced no output"}
+
+        try:
+            return json.loads(lines[-1])
+        except json.JSONDecodeError as exc:
+            return {"error": f"runner output not valid JSON: {exc}", "raw": lines[-1]}
+
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+
+# ── end Sandbox exec (Step 16) ──
 
 
 @app.get("/")
