@@ -621,28 +621,47 @@ function pushHash(type, id) {
 function vncPanel() {
   return {
     vncImage: '',
-    vncTimeout: 600,
+    vncTimeout: 1800,
     launching: false,
+    bootStatus: '',
     vncUrl: null,
     sandboxId: null,
     error: null,
     init: async function () {
-      // Load default VNC image from /api/config if available
       var cfg = await fetchJson('/api/config');
       if (!cfg.error && cfg.VNC_IMAGE) this.vncImage = cfg.VNC_IMAGE;
-      // TODO: backend contract C1 — /api/config not ready yet if null
     },
     launch: async function () {
       this.error = null;
       this.launching = true;
+      this.bootStatus = 'Spinning up Kata VM...';
       var body = { timeout_s: this.vncTimeout };
       if (this.vncImage) body.image = this.vncImage;
       var resp = await postJson('/api/sandbox/vnc', body);
-      this.launching = false;
-      if (resp.error) { this.error = resp.error; return; }
+      if (resp.error) { this.error = resp.error; this.launching = false; this.bootStatus = ''; return; }
       this.sandboxId = resp.sandbox_id;
-      this.vncUrl = resp.vnc_url;
-      showToast('Desktop sandbox launched: ' + (this.sandboxId || '').slice(0, 8), 'success');
+      var candidateUrl = resp.vnc_url;
+      this.bootStatus = 'VM up. Waiting for noVNC stack (xvfb + x11vnc + websockify)...';
+      // Poll the noVNC HTML through the portal-api passthrough until 200.
+      // Cold start can be 60-90s. Cap at 120s.
+      var ok = false;
+      for (var i = 0; i < 24; i++) {
+        try {
+          var r = await fetch('/api/sandbox/' + this.sandboxId + '/vnc-probe', { cache: 'no-store' });
+          if (r.ok) { ok = true; break; }
+        } catch (e) {}
+        this.bootStatus = 'VM up. Waiting for noVNC (' + ((i + 1) * 5) + 's)...';
+        await new Promise(function (res) { setTimeout(res, 5000); });
+      }
+      this.launching = false;
+      if (!ok) {
+        this.error = 'noVNC stack did not come up in 120s. Try Stop and relaunch.';
+        this.bootStatus = '';
+        return;
+      }
+      this.bootStatus = '';
+      this.vncUrl = candidateUrl;
+      showToast('Desktop ready: ' + (this.sandboxId || '').slice(0, 8), 'success');
     },
     stop: async function () {
       if (!this.sandboxId) return;
@@ -651,6 +670,7 @@ function vncPanel() {
       await fetch('/api/sandboxes/' + this.sandboxId, { method: 'DELETE' });
       this.vncUrl = null;
       this.sandboxId = null;
+      this.bootStatus = '';
       showToast('Desktop sandbox stopped', 'info');
     }
   };

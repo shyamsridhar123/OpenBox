@@ -571,6 +571,31 @@ async def create_vnc_sandbox(req: VncSandboxRequest) -> Any:
     }
 
 
+@app.get("/api/sandbox/{sandbox_id}/vnc-probe")
+async def vnc_probe(sandbox_id: str) -> Any:
+    """Server-side probe for noVNC readiness. Returns 200 once the in-pod
+    websockify is reachable via the control plane proxy. The browser polls
+    this so it can show a 'booting...' message until the VM and the VNC
+    stack are both up (cold start ~60-90s)."""
+    import httpx
+
+    url = (
+        f"{settings.CONTROL_PLANE_URL.rstrip('/')}"
+        f"/v1/sandboxes/{sandbox_id}/proxy/6080/vnc.html"
+    )
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(
+                url,
+                headers={"OPEN-SANDBOX-API-KEY": settings.CONTROL_PLANE_API_KEY},
+            )
+            if r.status_code == 200:
+                return {"ready": True, "status": 200}
+            raise HTTPException(status_code=503, detail=f"backend not ready: {r.status_code}")
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=503, detail=f"probe failed: {exc}")
+
+
 # ── end VNC sandbox (#18) ──
 
 

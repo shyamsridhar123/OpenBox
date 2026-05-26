@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DarkForge Command Center</title>
-  <link rel="stylesheet" href="/static/style.css?v=3">
+  <link rel="stylesheet" href="/static/style.css?v=4">
 </head>
 <body x-data="root()">
 
@@ -377,7 +377,7 @@
             <button class="btn primary vnc-launch-btn" :disabled="launching" x-on:click="launch()">
               <span class="spinner" x-show="launching"></span>
               <span x-show="!launching">&#9654; Launch desktop</span>
-              <span x-show="launching">Booting Kata VM&hellip;</span>
+              <span x-show="launching" x-text="bootStatus || 'Booting Kata VM&hellip;'"></span>
             </button>
             <div class="dim small" x-show="!launching" style="margin-top:6px">Streams noVNC into the panel below once the VM is ready.</div>
             <div class="dim small" x-show="error" x-text="error" style="color:var(--red);margin-top:6px"></div>
@@ -532,6 +532,6 @@
 
 
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
-  <script src="/static/app.js?v=3"></script>
+  <script src="/static/app.js?v=4"></script>
 </body>
 </html>
