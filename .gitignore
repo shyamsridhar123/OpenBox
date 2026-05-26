@@ -110,5 +110,9 @@ logs/
 # Claude Code skill scheduler artifact
 .claude/scheduled_tasks.lock
 
+# Portal-api local persistence (cluster-history.json + history.db SQLite).
+# Never tracked: regenerated per-environment, may contain user identifiers.
+apps/portal-api/data/
+
 # Executor verification leftovers
 *.err

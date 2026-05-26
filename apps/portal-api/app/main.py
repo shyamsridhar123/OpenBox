@@ -22,12 +22,13 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
 
 from . import swarm as swarm_module
+from . import cluster_history
 from .clients import AzClient, ControlPlaneClient, K8sClient
 from .config import settings
 from .identity import resolve_identity
 
-# Last cluster action record (module-level, cleared on restart)
-_last_action: dict[str, Any] | None = None
+# P0-6: last-action history is persisted to apps/portal-api/data/cluster-history.json
+# via cluster_history.py. The in-memory _last_action global is gone.
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -102,31 +103,81 @@ async def identity() -> dict[str, Any]:
 async def cluster_state() -> dict[str, Any]:
     az = AzClient(settings.RESOURCE_GROUP, settings.CLUSTER_NAME)
     data = await az.get_state()
-    if _last_action:
-        data = {**data, "last_action": _last_action.get("action"), "last_action_at": _last_action.get("started_at")}
+    last = cluster_history.read_last_action()
+    if last:
+        data = {
+            **data,
+            "last_action": last.get("last_action"),
+            "last_action_at": last.get("last_action_at"),
+            "last_actor": last.get("last_actor"),
+            "last_outcome": last.get("outcome"),
+            "last_duration_s": last.get("duration_s"),
+        }
     return data
+
+
+async def _poll_cluster_completion(action: str, expected_terminal: str) -> None:
+    """Background task: poll AKS power state until it reaches the expected
+    terminal value (Running for Start, Stopped for Stop) or timeout, then
+    write the completion record. Bounded at 30 minutes."""
+    import asyncio
+
+    az = AzClient(settings.RESOURCE_GROUP, settings.CLUSTER_NAME)
+    deadline_s = 1800
+    interval_s = 10
+    elapsed = 0
+    while elapsed < deadline_s:
+        await asyncio.sleep(interval_s)
+        elapsed += interval_s
+        try:
+            state = await az.get_state()
+        except Exception:  # noqa: BLE001
+            continue
+        power = (state.get("power") or "").lower() if isinstance(state, dict) else ""
+        if expected_terminal.lower() in power:
+            cluster_history.record_action_completed("success")
+            return
+    cluster_history.record_action_completed("failed")
 
 
 @app.post("/api/cluster/start", status_code=202)
 async def cluster_start() -> dict[str, Any]:
-    global _last_action
+    import asyncio
+
     az = AzClient(settings.RESOURCE_GROUP, settings.CLUSTER_NAME)
+    actor = (resolve_identity() or {}).get("az_user")
+    record = cluster_history.record_action_started("Start", actor)
     result = await az.start()
     if "error" in result:
+        cluster_history.record_action_completed("failed")
         return result
-    _last_action = result
-    return {"job_id": str(uuid.uuid4()), "state": "Starting", "started_at": result["started_at"]}
+    asyncio.create_task(_poll_cluster_completion("Start", "Running"))
+    return {
+        "job_id": str(uuid.uuid4()),
+        "state": "Starting",
+        "started_at": result["started_at"],
+        "actor": record.get("last_actor"),
+    }
 
 
 @app.post("/api/cluster/stop", status_code=202)
 async def cluster_stop() -> dict[str, Any]:
-    global _last_action
+    import asyncio
+
     az = AzClient(settings.RESOURCE_GROUP, settings.CLUSTER_NAME)
+    actor = (resolve_identity() or {}).get("az_user")
+    record = cluster_history.record_action_started("Stop", actor)
     result = await az.stop()
     if "error" in result:
+        cluster_history.record_action_completed("failed")
         return result
-    _last_action = result
-    return {"job_id": str(uuid.uuid4()), "state": "Stopping", "started_at": result["started_at"]}
+    asyncio.create_task(_poll_cluster_completion("Stop", "Stopped"))
+    return {
+        "job_id": str(uuid.uuid4()),
+        "state": "Stopping",
+        "started_at": result["started_at"],
+        "actor": record.get("last_actor"),
+    }
 
 
 @app.get("/api/sandboxes")
