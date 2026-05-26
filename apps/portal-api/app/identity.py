@@ -6,15 +6,34 @@ from typing import Any
 from .config import settings
 
 
-def _run(cmd: list[str]) -> str | None:
+def _run(cmd: list[str], *, shell: bool = False) -> str | None:
+    """Run a CLI command and return stdout (stripped) on rc=0, else None.
+
+    Windows quirk: the `az` CLI is shipped as `az.cmd`, a batch shim. When
+    spawned via subprocess WITHOUT shell=True it fails to launch (Win32 cannot
+    exec a .cmd directly), which is why /api/identity used to render the user
+    as `—`. The fix mirrors apps/portal-api/app/clients.py:_run_az. Kubectl is
+    a real .exe so we leave shell=False for it to avoid the usual shell-quoting
+    footgun.
+    """
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
+        if shell:
+            result = subprocess.run(
+                " ".join(cmd),
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+                shell=True,
+            )
+        else:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
         if result.returncode == 0:
             return result.stdout.strip() or None
         return None
@@ -23,9 +42,9 @@ def _run(cmd: list[str]) -> str | None:
 
 
 def resolve_identity() -> dict[str, Any]:
-    az_user = _run(["az", "account", "show", "--query", "user.name", "-o", "tsv"])
-    az_subscription_id = _run(["az", "account", "show", "--query", "id", "-o", "tsv"])
-    az_subscription_name = _run(["az", "account", "show", "--query", "name", "-o", "tsv"])
+    az_user = _run(["az", "account", "show", "--query", "user.name", "-o", "tsv"], shell=True)
+    az_subscription_id = _run(["az", "account", "show", "--query", "id", "-o", "tsv"], shell=True)
+    az_subscription_name = _run(["az", "account", "show", "--query", "name", "-o", "tsv"], shell=True)
     kubectx = _run(["kubectl", "config", "current-context"])
 
     key_file = settings.REPO_ROOT / "examples" / ".opensandbox-api-key"
