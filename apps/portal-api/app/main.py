@@ -498,10 +498,27 @@ async def get_pool(name: str) -> dict:
 
 @app.get("/api/events")
 async def list_events(since: int = 300, limit: int = 50) -> dict:
-    """Return recent namespace events, newest-first."""
-    from .clients import K8sClient
+    """Return recent namespace events, newest-first, with severity class
+    and human-language translations (P0-5)."""
+    from .clients import ControlPlaneClient, K8sClient
+    from .events import enrich_events
+
     k8s = K8sClient(settings.OPENSANDBOX_NAMESPACE)
-    events = await k8s.list_events(since_seconds=since, limit=limit)
+    raw = await k8s.list_events(since_seconds=since, limit=limit)
+
+    # Best-effort: fetch live sandbox ids so we can flag stale events.
+    cp = ControlPlaneClient(settings.CONTROL_PLANE_URL, settings.CONTROL_PLANE_API_KEY)
+    sandboxes_raw = await cp.list_sandboxes()
+    live_ids: set[str] | None = None
+    if isinstance(sandboxes_raw, list):
+        live_ids = {
+            str(sb.get("id") or sb.get("sandbox_id") or "")
+            for sb in sandboxes_raw
+            if isinstance(sb, dict)
+        }
+        live_ids.discard("")
+
+    events = enrich_events(raw, live_sandbox_ids=live_ids)
     return {"events": events, "count": len(events)}
 
 

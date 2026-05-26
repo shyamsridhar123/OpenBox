@@ -301,6 +301,7 @@ class K8sClient:
                     "involved_object": {
                         "kind": involved.kind if involved else "",
                         "name": involved.name if involved else "",
+                        "namespace": (involved.namespace if involved else "") or self._namespace,
                     },
                     "count": ev.count or 1,
                     "_sort_key": ts_dt,
