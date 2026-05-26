@@ -385,3 +385,13 @@ main.grid {
 .card-sandboxes-table .card-body { max-height: 360px; overflow-y: auto; }
 .card-sandboxes-table table { width: 100%; }
 
+/* ── P0-4: Gauge provenance ── */
+.gauge-provenance { margin-top: 4px; font-size: 10px; text-align: center; }
+
+/* ── P0-5: Events feed full message ── */
+.event-row { display: flex; gap: 6px; align-items: flex-start; padding: 4px 0; border-bottom: 1px solid #1c1d21; }
+.event-row-stale { opacity: 0.4; }
+.event-msg-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.event-raw { margin-top: 2px; }
+.event-raw-pre { font-family: var(--mono); font-size: 10px; white-space: pre-wrap; word-break: break-all; margin-top: 2px; }
+

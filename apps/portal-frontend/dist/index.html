@@ -248,7 +248,7 @@
     <article class="card card-observability" x-data="observabilityPanel()">
       <header>
         <h2>&#128200; Observability</h2>
-        <span class="subtitle">pool · events</span>
+        <span class="subtitle">pool &middot; events</span>
       </header>
       <div class="card-body">
         <!-- Pool gauge -->
@@ -265,6 +265,8 @@
             <span x-text="'AVAIL=' + (pool.available ?? '—')">—</span>
             <span x-text="'BUF=' + (pool.buffer_min ?? '—')">—</span>
           </div>
+          <!-- P0-4: provenance line -->
+          <div class="dim small gauge-provenance" x-text="'Source: Pool CR ' + (pool.name || 'kata') + ' &middot; last polled ' + lastPolledAgo + 's ago'"></div>
         </div>
 
         <!-- Events feed -->
@@ -274,9 +276,18 @@
             <div class="empty small">No recent events</div>
           </template>
           <template x-for="(ev, idx) in events" :key="idx">
-            <div class="event-row">
-              <span class="evt-chip" :class="eventClass(ev.reason)" x-text="ev.reason || '—'">—</span>
-              <span class="dim small mono" x-text="truncate(ev.message || '', 40)">—</span>
+            <!-- P0-5: gray out deleted-sandbox events; show full message; severity_class chip -->
+            <div class="event-row" :class="ev.is_for_deleted_sandbox ? 'event-row-stale' : ''">
+              <span class="evt-chip" :class="eventClass(ev)" x-text="ev.reason || '—'">—</span>
+              <div class="event-msg-wrap">
+                <span class="dim small" x-text="ev.human_message || ev.message || '—'">—</span>
+                <template x-if="ev.message && ev.human_message && ev.message !== ev.human_message">
+                  <details class="event-raw">
+                    <summary class="dim small" style="cursor:pointer;font-size:10px">raw</summary>
+                    <pre class="event-raw-pre dim small" x-text="ev.message">—</pre>
+                  </details>
+                </template>
+              </div>
             </div>
           </template>
         </div>

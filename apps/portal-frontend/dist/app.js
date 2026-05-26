@@ -382,13 +382,22 @@ function observabilityPanel() {
   return {
     pool: { name: 'kata', total: 0, allocated: 0, available: 0, pool_max: 10, buffer_min: 2 },
     events: [],
+    lastPolledAt: null,
+    lastPolledAgo: 0,
+    _agoTimer: null,
     init: function () {
       this.refresh();
       setInterval(() => this.refresh(), 3000);
+      // P0-4: track seconds since last poll
+      this._agoTimer = setInterval(() => {
+        if (this.lastPolledAt) {
+          this.lastPolledAgo = Math.floor((Date.now() - this.lastPolledAt) / 1000);
+        }
+      }, 1000);
     },
     refresh: async function () {
       var p = await fetchJson('/api/pool/kata');
-      if (!p.error) this.pool = p;
+      if (!p.error) { this.pool = p; this.lastPolledAt = Date.now(); this.lastPolledAgo = 0; }
       var e = await fetchJson('/api/events?since=600&limit=20');
       if (!e.error) this.events = e.events || [];
     },
@@ -397,11 +406,17 @@ function observabilityPanel() {
       var avail = (this.pool.available != null) ? this.pool.available : 0;
       return Math.min(100, Math.round((avail / max) * 100));
     },
-    eventClass: function (reason) {
-      if (reason === 'Scheduled' || reason === 'Started') return 'evt-green';
-      if (reason === 'Pulled') return 'evt-blue';
-      if (reason === 'FailedScheduling') return 'evt-red';
-      if (reason === 'TriggeredScaleUp') return 'evt-accent';
+    eventClass: function (ev) {
+      // P0-5: use severity_class if available, else fall back to reason heuristic
+      var sev = ev.severity_class || '';
+      if (sev === 'error') return 'evt-red';
+      if (sev === 'warning') return 'evt-accent';
+      if (sev === 'info') return 'evt-green';
+      var r = ev.reason || '';
+      if (r === 'Scheduled' || r === 'Started') return 'evt-green';
+      if (r === 'Pulled') return 'evt-blue';
+      if (r === 'FailedScheduling' || r === 'BackOff') return 'evt-red';
+      if (r === 'TriggeredScaleUp') return 'evt-accent';
       return 'evt-gray';
     }
   };
