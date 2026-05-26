@@ -256,6 +256,44 @@ class K8sClient:
             logger.warning("k8s pool CR fetch failed for %s: %s", pool_name, exc)
             return {"error": str(exc), "name": pool_name}
 
+    async def patch_pool_cr(self, pool_name: str, patch: dict[str, Any]) -> dict[str, Any]:
+        """Strategic-merge-patch a Pool CR's spec.capacitySpec fields.
+
+        `patch` is a flat dict of pool_min / pool_max / buffer_min / buffer_max
+        (any subset). They are translated to the camelCase field names on the
+        wire. Returns the patched object or {"error": ...}.
+        """
+        capacity_patch: dict[str, Any] = {}
+        for src, dst in (
+            ("pool_min", "poolMin"),
+            ("pool_max", "poolMax"),
+            ("buffer_min", "bufferMin"),
+            ("buffer_max", "bufferMax"),
+        ):
+            if src in patch and patch[src] is not None:
+                capacity_patch[dst] = int(patch[src])
+        if not capacity_patch:
+            return {"error": "no capacity fields supplied", "name": pool_name}
+
+        body = {"spec": {"capacitySpec": capacity_patch}}
+        try:
+            from kubernetes_asyncio import client, config  # type: ignore[import]
+            await config.load_kube_config()
+            custom = client.CustomObjectsApi()
+            patched = await custom.patch_namespaced_custom_object(
+                group="sandbox.opensandbox.io",
+                version="v1alpha1",
+                plural="pools",
+                namespace=self._namespace,
+                name=pool_name,
+                body=body,
+            )
+            await custom.api_client.close()
+            return patched
+        except Exception as exc:
+            logger.warning("k8s pool CR patch failed for %s: %s", pool_name, exc)
+            return {"error": str(exc), "name": pool_name}
+
     async def list_events(self, since_seconds: int = 300, limit: int = 50) -> list[dict[str, Any]]:
         """List recent namespace events, sorted newest-first, capped to `limit`."""
         try:

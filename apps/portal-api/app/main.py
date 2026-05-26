@@ -496,6 +496,57 @@ async def get_pool(name: str) -> dict:
     return await k8s.get_pool_cr(name)
 
 
+class PoolPatchRequest(BaseModel):
+    poolMin: int | None = None
+    poolMax: int | None = None
+    bufferMin: int | None = None
+    bufferMax: int | None = None
+
+
+@app.patch("/api/pool/{name}")
+async def patch_pool(name: str, req: PoolPatchRequest) -> Any:
+    """Patch Pool CR capacity fields (#19). Validates 1≤poolMin≤poolMax≤50
+    and 0≤bufferMin≤bufferMax≤poolMax before hitting the API server."""
+    from .clients import K8sClient
+
+    k8s = K8sClient(settings.OPENSANDBOX_NAMESPACE)
+    current = await k8s.get_pool_cr(name)
+    if "error" in current:
+        raise HTTPException(status_code=404, detail=f"pool {name!r}: {current['error']}")
+
+    # Merge requested values onto current to validate the resulting state.
+    effective = {
+        "pool_min": req.poolMin if req.poolMin is not None else current.get("pool_min", 0),
+        "pool_max": req.poolMax if req.poolMax is not None else current.get("pool_max", 0),
+        "buffer_min": req.bufferMin if req.bufferMin is not None else current.get("buffer_min", 0),
+        "buffer_max": req.bufferMax if req.bufferMax is not None else current.get("buffer_max", 0),
+    }
+
+    pmin, pmax = effective["pool_min"], effective["pool_max"]
+    bmin, bmax = effective["buffer_min"], effective["buffer_max"]
+    if not (1 <= pmin <= pmax <= 50):
+        raise HTTPException(
+            status_code=422,
+            detail=f"poolMin/poolMax must satisfy 1 <= poolMin <= poolMax <= 50 (got {pmin}/{pmax})",
+        )
+    if not (0 <= bmin <= bmax <= pmax):
+        raise HTTPException(
+            status_code=422,
+            detail=f"bufferMin/bufferMax must satisfy 0 <= bufferMin <= bufferMax <= poolMax (got {bmin}/{bmax}, poolMax={pmax})",
+        )
+
+    patch = {
+        "pool_min": req.poolMin,
+        "pool_max": req.poolMax,
+        "buffer_min": req.bufferMin,
+        "buffer_max": req.bufferMax,
+    }
+    result = await k8s.patch_pool_cr(name, patch)
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=502, detail=result["error"])
+    return result
+
+
 @app.get("/api/events")
 async def list_events(since: int = 300, limit: int = 50) -> dict:
     """Return recent namespace events, newest-first, with severity class
