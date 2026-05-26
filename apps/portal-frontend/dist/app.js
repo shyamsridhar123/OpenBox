@@ -653,15 +653,57 @@ function vncPanel() {
         this.bootStatus = 'VM up. Waiting for noVNC (' + ((i + 1) * 5) + 's)...';
         await new Promise(function (res) { setTimeout(res, 5000); });
       }
-      this.launching = false;
       if (!ok) {
+        this.launching = false;
         this.error = 'noVNC stack did not come up in 120s. Try Stop and relaunch.';
         this.bootStatus = '';
         return;
       }
+      // Phase-2 probe: try an actual RFB websocket handshake from the browser.
+      // websockify returns 200 on /vnc.html as soon as it binds, but the RFB
+      // handshake to x11vnc may not be live yet — that race is what leaves
+      // noVNC stuck on "connection closed". Wait until WS opens cleanly.
+      // Probe targets the same host:port as the iframe (control plane) so
+      // we exercise the exact path noVNC's auto-connect will take.
+      this.bootStatus = 'noVNC up. Verifying RFB handshake...';
+      var candidate = new URL(candidateUrl);
+      var wsBase = (candidate.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + candidate.host
+        + candidate.pathname.replace(/vnc\.html$/, 'websockify');
+      var wsOk = false;
+      for (var j = 0; j < 12; j++) {
+        wsOk = await new Promise(function (resolve) {
+          var ws;
+          try {
+            ws = new WebSocket(wsBase, 'binary');
+          } catch (e) { resolve(false); return; }
+          var done = false;
+          ws.onopen = function () { if (!done) { done = true; try { ws.close(); } catch (e) {} resolve(true); } };
+          ws.onerror = function () { if (!done) { done = true; resolve(false); } };
+          ws.onclose = function () { if (!done) { done = true; resolve(false); } };
+          setTimeout(function () { if (!done) { done = true; try { ws.close(); } catch (e) {} resolve(false); } }, 3000);
+        });
+        if (wsOk) break;
+        this.bootStatus = 'RFB not ready yet (' + ((j + 1) * 3) + 's)...';
+        await new Promise(function (res) { setTimeout(res, 3000); });
+      }
+      this.launching = false;
       this.bootStatus = '';
-      this.vncUrl = candidateUrl;
+      // Cache-bust to force a fresh iframe load even if it was rendered before.
+      this.vncUrl = candidateUrl + (candidateUrl.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
       showToast('Desktop ready: ' + (this.sandboxId || '').slice(0, 8), 'success');
+    },
+    reconnect: function () {
+      // Force noVNC to re-handshake by re-stamping the iframe src. Recovers from
+      // stale "connection closed" banners without restarting the sandbox.
+      if (!this.sandboxId) return;
+      var base = this.vncUrl ? this.vncUrl.split('?')[0] : null;
+      if (!base) return;
+      this.vncUrl = null;
+      var self = this;
+      requestAnimationFrame(function () {
+        self.vncUrl = base + '?autoconnect=true&resize=remote&_t=' + Date.now();
+        showToast('Reconnecting noVNC...', 'info');
+      });
     },
     stop: async function () {
       if (!this.sandboxId) return;

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DarkForge Command Center</title>
-  <link rel="stylesheet" href="/static/style.css?v=4">
+  <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body x-data="root()">
 
@@ -388,6 +388,7 @@
             <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
               <span class="mono small dim" x-text="'sb=' + (sandboxId||'').slice(0,8)">—</span>
               <a class="btn ghost small" :href="vncUrl" target="_blank" rel="noopener">&#8599; Open in new tab</a>
+              <button class="btn ghost small" x-on:click="reconnect()" title="Re-handshake noVNC without restarting the sandbox">&#x21bb; Reconnect</button>
               <button class="btn danger small" x-on:click="stop()">&#9632; Stop</button>
             </div>
             <iframe :src="vncUrl" style="width:100%;height:600px;border:0;border-radius:6px" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
@@ -532,6 +533,6 @@
 
 
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
-  <script src="/static/app.js?v=4"></script>
+  <script src="/static/app.js?v=5"></script>
 </body>
 </html>

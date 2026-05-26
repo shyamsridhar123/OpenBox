@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import subprocess
 import tempfile
 import time
 from contextlib import asynccontextmanager
@@ -635,21 +636,27 @@ async def sandbox_exec(req: SandboxExecRequest) -> Any:
         env["OPENSANDBOX_DOMAIN"] = "localhost:18080"
         env["PYTHONUNBUFFERED"] = "1"
 
-        proc = await asyncio.create_subprocess_exec(
-            str(settings.SWARM_VENV_PYTHON),
-            str(helper),
-            env=env,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        try:
-            raw_out, raw_err = await asyncio.wait_for(
-                proc.communicate(), timeout=float(outer_cap)
+        # NOTE: uvicorn forces SelectorEventLoop on Windows, which raises
+        # NotImplementedError on asyncio.create_subprocess_exec. Run the
+        # blocking subprocess on a worker thread instead — same pattern as
+        # swarm.py (Popen + asyncio.to_thread).
+        def _run_helper() -> tuple[bytes, bytes, bool]:
+            p = subprocess.Popen(  # noqa: S603
+                [str(settings.SWARM_VENV_PYTHON), str(helper)],
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
-        except asyncio.TimeoutError:
-            proc.kill()
-            await proc.communicate()
+            try:
+                out, err = p.communicate(timeout=float(outer_cap))
+                return out, err, False
+            except subprocess.TimeoutExpired:
+                p.kill()
+                out, err = p.communicate()
+                return out, err, True
+
+        raw_out, raw_err, timed_out = await asyncio.to_thread(_run_helper)
+        if timed_out:
             return {"error": "subprocess timeout"}
 
         if raw_err:
