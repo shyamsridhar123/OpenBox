@@ -442,6 +442,7 @@ function observabilityPanel() {
     sparkTicks: [],
     hubbleUrl: null,
     azMonitorUrl: null,
+    sliderPoolMin: 2,
     sliderPoolMax: 10,
     sliderBufMin: 2,
     sliderBufMax: 4,
