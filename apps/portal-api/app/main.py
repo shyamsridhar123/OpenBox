@@ -450,6 +450,12 @@ async def create_vnc_sandbox(req: VncSandboxRequest) -> Any:
     body = {
         "image": {"uri": image},
         "timeout": req.timeout_s,
+        # The control plane requires entrypoint even when the image has a
+        # CMD baked in (docker semantics don't carry over). Mirror the
+        # desktop-vnc Dockerfile: ENTRYPOINT ["/usr/bin/tini","--"]
+        # CMD ["/usr/local/bin/start.sh"]. Flatten to a single argv list
+        # since the control plane wants one.
+        "entrypoint": ["/usr/bin/tini", "--", "/usr/local/bin/start.sh"],
         # 4 GiB ceiling lets Chromium + a single tab run comfortably.
         "resourceLimits": {"cpu": "2", "memory": "4Gi"},
         "metadata": {
