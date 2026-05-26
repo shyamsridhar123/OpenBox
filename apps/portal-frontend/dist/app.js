@@ -220,7 +220,7 @@ function swarmPanel() {
       });
       if (resp.error) { showToast(resp.error, 'error'); this.running = false; return; }
       this.runId = resp.run_id;
-      var start = Date.now();
+      pushHash('swarm', this.runId);
       var self = this;
       this._elapsedTimer = setInterval(function () {
         self.elapsed = ((Date.now() - start) / 1000).toFixed(1);
@@ -521,3 +521,81 @@ function sandboxesTable() {
     formatAge: function (s) { return formatAge(s); }
   };
 }
+// ── P2-2: Global keyboard shortcuts ──���───────────────────────────────────────
+(function () {
+  var gPending = false;
+  var gTimer = null;
+  var cardMap = {
+    's': '.card-swarm',
+    'k': '.card-kimi-chat',
+    'c': '.card-cluster',
+    'o': '.card-observability',
+    'x': '.card-create-sandbox',
+    't': '.card-sandboxes-table'
+  };
+
+  function focusCard(sel) {
+    var el = document.querySelector(sel);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    var focusable = el.querySelector('button, input, select, textarea, [tabindex]');
+    if (focusable) setTimeout(function () { focusable.focus(); }, 300);
+  }
+
+  document.addEventListener('keydown', function (e) {
+    // Ignore when typing in inputs
+    var tag = (e.target || {}).tagName || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    var key = e.key;
+
+    // Esc: close any open modal
+    if (key === 'Escape') {
+      document.getElementById('kbd-modal').style.display = 'none';
+      document.getElementById('modal-backdrop').style.display = 'none';
+      gPending = false; clearTimeout(gTimer);
+      return;
+    }
+
+    // ?: open cheatsheet
+    if (key === '?') {
+      document.getElementById('kbd-modal').style.display = 'flex';
+      return;
+    }
+
+    // g <letter>: navigate to card
+    if (gPending) {
+      clearTimeout(gTimer);
+      gPending = false;
+      if (cardMap[key]) { focusCard(cardMap[key]); }
+      return;
+    }
+    if (key === 'g') {
+      gPending = true;
+      gTimer = setTimeout(function () { gPending = false; }, 1500);
+    }
+  });
+})();
+
+// ── P2-3: URL hash routing ────────────────────────────────────────────────────
+// Push hash on swarm start or chat conversation; restore on load (best-effort).
+// Alpine factories call pushHash() when they have an ID to share.
+function pushHash(type, id) {
+  if (!id) return;
+  history.replaceState(null, '', '#/' + type + '/' + id);
+}
+
+// On page load, scroll to the relevant card if hash is present
+(function () {
+  var hash = location.hash; // e.g. #/swarm/abc123 or #/chat/conv456
+  if (!hash) return;
+  var parts = hash.replace('#/', '').split('/');
+  var type = parts[0];
+  var cardSel = { swarm: '.card-swarm', chat: '.card-kimi-chat' }[type];
+  if (cardSel) {
+    window.addEventListener('load', function () {
+      var el = document.querySelector(cardSel);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+})();

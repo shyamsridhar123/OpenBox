@@ -12,11 +12,11 @@
   <header class="topbar">
     <div class="brand">&#9875; DarkForge <span class="dim">Command Center</span></div>
     <div class="identity-chips">
-      <span class="chip identity">&#9888; DEV MODE</span>
+      <span class="chip identity">&#9651; DEV MODE</span>
       <span class="chip mono"
             :class="identity.az_user ? '' : 'chip-warn'"
             :title="identity.az_user ? (identity.az_user + (identity.az_subscription_name ? ' · ' + identity.az_subscription_name : '')) : 'az login not detected — run az login'"
-            x-text="identity.az_user || '&#9888; not logged in'">…</span>
+            x-text="identity.az_user || '&#9651; not logged in'">…</span>
       <span class="chip mono" x-text="identity.kubectx || '—'">…</span>
     </div>
   </header>
@@ -358,7 +358,7 @@
   <footer>
     <span id="footer-time">Last refreshed: —</span>
     &nbsp;|&nbsp;
-    <span class="chip identity" style="font-size:11px">&#9888; DEV MODE — localhost only</span>
+    <span class="chip identity" style="font-size:11px">&#9651; DEV MODE — localhost only</span>
   </footer>
 
   <!-- Toast stack -->
@@ -372,6 +372,29 @@
       <div class="modal-actions">
         <button class="btn ghost" id="modal-cancel">Cancel</button>
         <button class="btn primary" id="modal-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- P2-2: Keyboard shortcuts cheatsheet modal -->
+  <div class="modal-backdrop" id="kbd-modal" style="display:none" x-on:click.self="document.getElementById('kbd-modal').style.display='none'">
+    <div class="modal-dialog" style="min-width:380px">
+      <div class="modal-title">Keyboard Shortcuts</div>
+      <div class="modal-body">
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td class="mono small" style="padding:4px 8px">?</td><td class="small dim">Open this cheatsheet</td></tr>
+          <tr><td class="mono small" style="padding:4px 8px">Esc</td><td class="small dim">Close modal</td></tr>
+          <tr><td class="mono small" style="padding:4px 8px">g s</td><td class="small dim">Go to Run Swarm</td></tr>
+          <tr><td class="mono small" style="padding:4px 8px">g k</td><td class="small dim">Go to Kimi Chat</td></tr>
+          <tr><td class="mono small" style="padding:4px 8px">g c</td><td class="small dim">Go to Cluster</td></tr>
+          <tr><td class="mono small" style="padding:4px 8px">g o</td><td class="small dim">Go to Observability</td></tr>
+          <tr><td class="mono small" style="padding:4px 8px">g x</td><td class="small dim">Go to Create Sandbox</td></tr>
+          <tr><td class="mono small" style="padding:4px 8px">g t</td><td class="small dim">Go to Sandboxes Table</td></tr>
+          <tr><td class="mono small" style="padding:4px 8px">Ctrl+Enter</td><td class="small dim">Send chat message</td></tr>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" x-on:click="document.getElementById('kbd-modal').style.display='none'">Close</button>
       </div>
     </div>
   </div>
