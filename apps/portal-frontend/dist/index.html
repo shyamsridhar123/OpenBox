@@ -13,7 +13,10 @@
     <div class="brand">&#9875; DarkForge <span class="dim">Command Center</span></div>
     <div class="identity-chips">
       <span class="chip identity">&#9888; DEV MODE</span>
-      <span class="chip mono" x-text="identity.az_user || '—'">…</span>
+      <span class="chip mono"
+            :class="identity.az_user ? '' : 'chip-warn'"
+            :title="identity.az_user ? (identity.az_user + (identity.az_subscription_name ? ' · ' + identity.az_subscription_name : '')) : 'az login not detected — run az login'"
+            x-text="identity.az_user || '&#9888; not logged in'">…</span>
       <span class="chip mono" x-text="identity.kubectx || '—'">…</span>
     </div>
   </header>

@@ -113,6 +113,7 @@ footer {
 .identity-chips { display: flex; gap: 6px; align-items: center; }
 .chip.identity { border-color: #eab30888; color: var(--yellow); background: #26220e; font-weight: 700; }
 .chip.mono { font-family: var(--mono); font-size: 11px; }
+.chip.chip-warn { border-color: #ef444488; color: var(--red); background: #27110e; }
 
 /* ── Card grid ── */
 main.grid {
