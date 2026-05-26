@@ -404,13 +404,13 @@ function chatPanel() {
       });
     },
     demoChartPrompt: function () {
-      this.input = 'Write a Python snippet that uses matplotlib to plot sin(x) and cos(x) from 0 to 4π on the same axes, with a legend, title 'Demo: sin & cos', and grid. Just the code in a python fenced block — no explanation.';
+      this.input = "Write a Python snippet that uses matplotlib to plot sin(x) and cos(x) from 0 to 4π on the same axes, with a legend, title 'Demo: sin & cos', and grid. Just the code in a python fenced block — no explanation.";
     },
     // P1-4: one-click sin/cos demo
     demoSinCosStatus: '',
     runSinCosDemo: async function () {
       this.demoSinCosStatus = 'Sending prompt…';
-      this.input = 'Write a Python snippet that uses matplotlib to plot sin(x) and cos(x) from 0 to 4π on the same axes, with a legend, title 'Demo: sin & cos', and grid. Just the code in a python fenced block — no explanation.';
+      this.input = "Write a Python snippet that uses matplotlib to plot sin(x) and cos(x) from 0 to 4π on the same axes, with a legend, title 'Demo: sin & cos', and grid. Just the code in a python fenced block — no explanation.";
       await this.send();
       this.demoSinCosStatus = 'Waiting for reply…';
       var deadline = Date.now() + 60000;
