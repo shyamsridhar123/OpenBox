@@ -381,7 +381,15 @@ main.grid {
   display: flex; gap: 10px; align-items: center; margin: 4px 0 6px 0;
 }
 
-/* ── P0-1: Sandboxes table scroll constraint ── */
+/* ── #19: Pool sliders ── */
+.pool-sliders { border-top: 1px solid var(--border); padding-top: 10px; }
+.slider-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.slider-row .form-label { width: 80px; flex-shrink: 0; margin: 0; }
+.pool-range { flex: 1; accent-color: var(--accent); cursor: pointer; }
+
+/* ── #18: VNC card ── */
+.card-vnc { grid-column: 1 / 7; }
+@media (max-width: 768px) { .card-vnc { grid-column: 1 / -1; } }
 .card-sandboxes-table .card-body { max-height: 360px; overflow-y: auto; }
 .card-sandboxes-table table { width: 100%; }
 

@@ -305,6 +305,62 @@
             </div>
           </template>
         </div>
+
+        <!-- #19: Pool sliders -->
+        <div class="pool-sliders" style="margin-top:12px">
+          <div class="dim small" style="margin-bottom:6px">Pool tuning (PATCH /api/pool/<span x-text="pool.name||'kata'"></span>)</div>
+          <div class="slider-row">
+            <label class="form-label">poolMin <span class="mono" x-text="sliderPoolMin"></span></label>
+            <input type="range" min="0" max="20" x-model.number="sliderPoolMin" x-on:change="schedulePatch()" class="pool-range">
+          </div>
+          <div class="slider-row">
+            <label class="form-label">poolMax <span class="mono" x-text="sliderPoolMax"></span></label>
+            <input type="range" min="1" max="50" x-model.number="sliderPoolMax" x-on:change="schedulePatch()" class="pool-range">
+          </div>
+          <div class="slider-row">
+            <label class="form-label">bufMin <span class="mono" x-text="sliderBufMin"></span></label>
+            <input type="range" min="0" max="20" x-model.number="sliderBufMin" x-on:change="schedulePatch()" class="pool-range">
+          </div>
+          <div class="slider-row">
+            <label class="form-label">bufMax <span class="mono" x-text="sliderBufMax"></span></label>
+            <input type="range" min="0" max="20" x-model.number="sliderBufMax" x-on:change="schedulePatch()" class="pool-range">
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Card 5b: VNC Desktop Sandbox (#18, cols 1-6) -->
+    <article class="card card-vnc" x-data="vncPanel()">
+      <header>
+        <h2>&#128421; Desktop Sandbox</h2>
+        <span class="subtitle">VNC via kata-vm-isolation</span>
+      </header>
+      <div class="card-body">
+        <template x-if="!vncUrl">
+          <div>
+            <div class="form-stack" style="margin-bottom:10px">
+              <label class="form-label">Image (optional)</label>
+              <input class="form-input" type="text" placeholder="(default from /api/config)" x-model="vncImage">
+              <label class="form-label">Timeout (s)</label>
+              <input class="form-input" type="number" x-model.number="vncTimeout" min="30" max="3600">
+            </div>
+            <button class="btn primary" :disabled="launching" x-on:click="launch()">
+              <span class="spinner" x-show="launching"></span>
+              <span x-show="!launching">&#128421; Launch desktop</span>
+            </button>
+            <div class="dim small" x-show="error" x-text="error" style="color:var(--red);margin-top:6px"></div>
+          </div>
+        </template>
+        <template x-if="vncUrl">
+          <div>
+            <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+              <span class="mono small dim" x-text="'sb=' + (sandboxId||'').slice(0,8)">—</span>
+              <a class="btn ghost small" :href="vncUrl" target="_blank" rel="noopener">&#8599; Open in new tab</a>
+              <button class="btn danger small" x-on:click="stop()">&#9632; Stop</button>
+            </div>
+            <iframe :src="vncUrl" style="width:100%;height:600px;border:0;border-radius:6px" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+          </div>
+        </template>
       </div>
     </article>
 

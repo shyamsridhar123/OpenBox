@@ -221,6 +221,7 @@ function swarmPanel() {
       if (resp.error) { showToast(resp.error, 'error'); this.running = false; return; }
       this.runId = resp.run_id;
       pushHash('swarm', this.runId);
+      var start = Date.now();
       var self = this;
       this._elapsedTimer = setInterval(function () {
         self.elapsed = ((Date.now() - start) / 1000).toFixed(1);
@@ -436,10 +437,15 @@ function observabilityPanel() {
     lastPolledAt: null,
     lastPolledAgo: 0,
     _agoTimer: null,
+    // #19: pool slider values (initialised from pool CR on first fetch)
+    sliderPoolMin: 0,
+    sliderPoolMax: 10,
+    sliderBufMin: 2,
+    sliderBufMax: 4,
+    _patchTimer: null,
     init: function () {
       this.refresh();
       setInterval(() => this.refresh(), 3000);
-      // P0-4: track seconds since last poll
       this._agoTimer = setInterval(() => {
         if (this.lastPolledAt) {
           this.lastPolledAgo = Math.floor((Date.now() - this.lastPolledAt) / 1000);
@@ -448,7 +454,19 @@ function observabilityPanel() {
     },
     refresh: async function () {
       var p = await fetchJson('/api/pool/kata');
-      if (!p.error) { this.pool = p; this.lastPolledAt = Date.now(); this.lastPolledAgo = 0; }
+      if (!p.error) {
+        this.pool = p;
+        this.lastPolledAt = Date.now();
+        this.lastPolledAgo = 0;
+        // sync sliders to live values on first load only (don't clobber user edits)
+        if (!this._sliderInited) {
+          this.sliderPoolMin = p.pool_min != null ? p.pool_min : 0;
+          this.sliderPoolMax = p.pool_max != null ? p.pool_max : 10;
+          this.sliderBufMin  = p.buffer_min != null ? p.buffer_min : 2;
+          this.sliderBufMax  = p.buffer_max != null ? p.buffer_max : 4;
+          this._sliderInited = true;
+        }
+      }
       var e = await fetchJson('/api/events?since=600&limit=20');
       if (!e.error) this.events = e.events || [];
     },
@@ -458,7 +476,6 @@ function observabilityPanel() {
       return Math.min(100, Math.round((avail / max) * 100));
     },
     eventClass: function (ev) {
-      // P0-5: use severity_class if available, else fall back to reason heuristic
       var sev = ev.severity_class || '';
       if (sev === 'error') return 'evt-red';
       if (sev === 'warning') return 'evt-accent';
@@ -469,6 +486,33 @@ function observabilityPanel() {
       if (r === 'FailedScheduling' || r === 'BackOff') return 'evt-red';
       if (r === 'TriggeredScaleUp') return 'evt-accent';
       return 'evt-gray';
+    },
+    // #19: debounced PATCH pool CR
+    schedulePatch: function () {
+      clearTimeout(this._patchTimer);
+      var self = this;
+      this._patchTimer = setTimeout(async function () {
+        var name = self.pool.name || 'kata';
+        var ok = await confirmModal(
+          'Update pool ' + name + '?',
+          'poolMin=' + self.sliderPoolMin + ' poolMax=' + self.sliderPoolMax +
+          ' bufferMin=' + self.sliderBufMin + ' bufferMax=' + self.sliderBufMax
+        );
+        if (!ok) return;
+        var resp = await fetchJson('/api/pool/' + name, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            poolMin: self.sliderPoolMin,
+            poolMax: self.sliderPoolMax,
+            bufferMin: self.sliderBufMin,
+            bufferMax: self.sliderBufMax
+          })
+        });
+        if (resp && resp.error) showToast('PATCH failed: ' + resp.error, 'error');
+        else showToast('Pool updated', 'success');
+        self.refresh();
+      }, 500);
     }
   };
 }
@@ -599,3 +643,42 @@ function pushHash(type, id) {
     });
   }
 })();
+
+// -- VNC card (#18) --
+function vncPanel() {
+  return {
+    vncImage: '',
+    vncTimeout: 600,
+    launching: false,
+    vncUrl: null,
+    sandboxId: null,
+    error: null,
+    init: async function () {
+      // Load default VNC image from /api/config if available
+      var cfg = await fetchJson('/api/config');
+      if (!cfg.error && cfg.VNC_IMAGE) this.vncImage = cfg.VNC_IMAGE;
+      // TODO: backend contract C1 — /api/config not ready yet if null
+    },
+    launch: async function () {
+      this.error = null;
+      this.launching = true;
+      var body = { timeout_s: this.vncTimeout };
+      if (this.vncImage) body.image = this.vncImage;
+      var resp = await postJson('/api/sandbox/vnc', body);
+      this.launching = false;
+      if (resp.error) { this.error = resp.error; return; }
+      this.sandboxId = resp.sandbox_id;
+      this.vncUrl = resp.vnc_url;
+      showToast('Desktop sandbox launched: ' + (this.sandboxId || '').slice(0, 8), 'success');
+    },
+    stop: async function () {
+      if (!this.sandboxId) return;
+      var ok = await confirmModal('Stop desktop sandbox?', 'This will delete sandbox ' + this.sandboxId.slice(0, 12) + '...');
+      if (!ok) return;
+      await fetch('/api/sandboxes/' + this.sandboxId, { method: 'DELETE' });
+      this.vncUrl = null;
+      this.sandboxId = null;
+      showToast('Desktop sandbox stopped', 'info');
+    }
+  };
+}
